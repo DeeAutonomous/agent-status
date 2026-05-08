@@ -81,10 +81,26 @@ final class SessionStore: ObservableObject {
                 || x.isAlive != y.isAlive
                 || x.kind != y.kind
                 || x.cwd != y.cwd
-                || x.enriched != y.enriched
+                || !enrichedCoreEqual(x.enriched, y.enriched)
             { return false }
         }
         return true
+    }
+
+    /// True when the menu-bar-row-relevant subset of the two enriched values
+    /// match. Detail-only fields (`activeTools`, `recentTools`) are excluded
+    /// so churn there doesn't trigger a row redraw.
+    private static func enrichedCoreEqual(_ a: EnrichedSession?, _ b: EnrichedSession?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (x?, y?): return x.coreEqual(y)
+        default: return false
+        }
+    }
+
+    /// Test-only hook so XCTest can pin the perf invariant.
+    static func _test_uiEqual(_ a: [SessionSnapshot], _ b: [SessionSnapshot]) -> Bool {
+        uiEqual(a, b)
     }
 
     private func recompute() {
