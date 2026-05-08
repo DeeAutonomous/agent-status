@@ -74,6 +74,47 @@ actor TranscriptTailer {
         (json["isSidechain"] as? Bool) == true
     }
 
+    /// Build a `WaitingDisplay` from the raw `waitingFor` string and the most
+    /// recent in-flight tool_use (if any). Pure — no I/O, no state.
+    /// Returns nil when not waiting (`waitingFor == nil`).
+    ///
+    /// Routing rules:
+    ///   - `pending.name == "AskUserQuestion"` → `.askUserQuestion(text, options)`
+    ///     using `pendingInput["questions"][0]`.
+    ///   - `pending.name == "Task"` → `.subagent(description, prompt)` from `pendingInput`.
+    ///   - any other `pending` → `.tool(name, preview)`.
+    ///   - no `pending` → `.unknown(rawWaitingFor)`.
+    static func waitingDisplay(
+        for waitingFor: String?,
+        pending: ActiveTool?,
+        pendingInput: [String: Any]?
+    ) -> WaitingDisplay? {
+        guard let raw = waitingFor else { return nil }
+
+        guard let p = pending else {
+            return .unknown(rawWaitingFor: raw)
+        }
+
+        switch p.name {
+        case "AskUserQuestion":
+            let questions = (pendingInput?["questions"] as? [[String: Any]]) ?? []
+            let first = questions.first ?? [:]
+            let text = (first["question"] as? String) ?? ""
+            let options = ((first["options"] as? [[String: Any]]) ?? []).compactMap {
+                $0["label"] as? String
+            }
+            return .askUserQuestion(text: text, options: options)
+
+        case "Task":
+            let description = (pendingInput?["description"] as? String) ?? ""
+            let prompt = (pendingInput?["prompt"] as? String) ?? ""
+            return .subagent(description: description, prompt: prompt)
+
+        default:
+            return .tool(name: p.name, preview: p.preview)
+        }
+    }
+
     func stop() {
         pollTask?.cancel()
         pollTask = nil

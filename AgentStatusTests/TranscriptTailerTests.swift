@@ -72,4 +72,82 @@ final class TranscriptTailerTests: XCTestCase {
         // Bool-only — string "true" must not count as truthy.
         XCTAssertFalse(TranscriptTailer.isSidechain(["isSidechain": "true"]))
     }
+
+    // MARK: - waitingDisplay
+
+    private func makeActive(name: String, preview: String) -> ActiveTool {
+        ActiveTool(id: "id", name: name, preview: preview, startedAt: .now, rawInputJSON: nil)
+    }
+
+    func testWaitingDisplayNilWhenNotWaiting() {
+        XCTAssertNil(TranscriptTailer.waitingDisplay(for: nil, pending: nil, pendingInput: nil))
+    }
+
+    func testWaitingDisplayToolCase() {
+        let pending = makeActive(name: "Bash", preview: "npm test")
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve Bash", pending: pending, pendingInput: nil
+        )
+        XCTAssertEqual(d, .tool(name: "Bash", preview: "npm test"))
+    }
+
+    func testWaitingDisplayAskUserQuestion() {
+        let pending = makeActive(name: "AskUserQuestion", preview: "")
+        let input: [String: Any] = [
+            "questions": [[
+                "question": "Which DB?",
+                "options": [
+                    ["label": "Postgres"],
+                    ["label": "SQLite"],
+                ],
+            ]],
+        ]
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve AskUserQuestion", pending: pending, pendingInput: input
+        )
+        XCTAssertEqual(d, .askUserQuestion(text: "Which DB?", options: ["Postgres", "SQLite"]))
+    }
+
+    func testWaitingDisplayAskUserQuestionEmptyOptions() {
+        let pending = makeActive(name: "AskUserQuestion", preview: "")
+        let input: [String: Any] = [
+            "questions": [["question": "Proceed?", "options": [[String: Any]]()]],
+        ]
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve AskUserQuestion", pending: pending, pendingInput: input
+        )
+        XCTAssertEqual(d, .askUserQuestion(text: "Proceed?", options: []))
+    }
+
+    func testWaitingDisplaySubagent() {
+        let pending = makeActive(name: "Task", preview: "research-foo")
+        let input: [String: Any] = [
+            "description": "research-foo",
+            "prompt": "Find all references to toolStarts and report them.",
+        ]
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve Task", pending: pending, pendingInput: input
+        )
+        XCTAssertEqual(d, .subagent(
+            description: "research-foo",
+            prompt: "Find all references to toolStarts and report them."
+        ))
+    }
+
+    func testWaitingDisplaySubagentMissingPromptDefaultsToEmpty() {
+        let pending = makeActive(name: "Task", preview: "do thing")
+        let input: [String: Any] = ["description": "do thing"]
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve Task", pending: pending, pendingInput: input
+        )
+        XCTAssertEqual(d, .subagent(description: "do thing", prompt: ""))
+    }
+
+    func testWaitingDisplayUnknownFallback() {
+        // No pending tool we recognize → fall back to raw string verbatim.
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve Foo", pending: nil, pendingInput: nil
+        )
+        XCTAssertEqual(d, .unknown(rawWaitingFor: "approve Foo"))
+    }
 }
