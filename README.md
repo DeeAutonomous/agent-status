@@ -98,6 +98,7 @@ The estimated-cost figures are computed locally from token counts × per-model r
 - ✅ Phase B — rich signals surfaced in dashboard + detail popover
 - ✅ Phase C — native notifications
 - 🚧 Real Codex provider once the data source surfaces
+- 🚧 First-class headless `claude -p` (`sdk-cli`) sessions — they render as "unknown" with no permission chip today, because pid.json carries no `status` field for headless and the transcript omits `permission-mode` records; plan is to synthesize coarse status from `EnrichedSession.currentTool` + `lastStopReason`, read `--permission-mode` from the process argv, and tag the row to distinguish headless from interactive
 - 🚧 GitHub releases with pre-built bundles
 - 🚧 End-to-end test for the `TranscriptTailer` against a fixture transcript
 
