@@ -14,7 +14,6 @@ struct SettingsView: View {
                 Divider()
 
                 section("Visible signals", systemImage: "eye") {
-                    Toggle("Current tool & duration", isOn: $settings.showCurrentTool)
                     Toggle("Permission mode badge", isOn: $settings.showPermissionMode)
                     Toggle("Tokens & estimated cost", isOn: $settings.showTokensAndCost)
                     Toggle("AI title & last prompt", isOn: $settings.showAITitleAndLastPrompt)

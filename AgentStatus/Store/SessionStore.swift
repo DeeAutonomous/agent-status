@@ -90,6 +90,13 @@ final class SessionStore: ObservableObject {
     /// True when the menu-bar-row-relevant subset of the two enriched values
     /// match. Detail-only fields (`activeTools`, `recentTools`) are excluded
     /// so churn there doesn't trigger a row redraw.
+    ///
+    /// Note: this means a successful tool_result alone won't republish
+    /// `@Published snapshots` (no core field changes). The popover's own
+    /// `TimelineView(.periodic(by: 5))` in `SessionDetailView.body`
+    /// re-reads the latest snapshot every 5 s, so the Recent section is
+    /// stale by at most one tick. Acceptable design tradeoff vs. a full
+    /// two-channel split; revisit if 5 s feels laggy in practice.
     private static func enrichedCoreEqual(_ a: EnrichedSession?, _ b: EnrichedSession?) -> Bool {
         switch (a, b) {
         case (nil, nil): return true
