@@ -16,9 +16,6 @@ struct SessionRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 titleRow
                 statusLine
-                if settings.showCurrentTool, let tool = snapshot.enriched?.currentTool {
-                    currentToolLine(tool)
-                }
                 metaChips
                 SparklineView(buckets: buckets, height: 12)
                     .frame(maxWidth: .infinity)
