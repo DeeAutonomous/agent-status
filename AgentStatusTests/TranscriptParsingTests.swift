@@ -52,8 +52,31 @@ final class TranscriptParsingTests: XCTestCase {
         await tailer._test_processLine(jsonString(json))
         let snap = await tailer._test_state
         XCTAssertEqual(snap.toolCalls, 1)
-        XCTAssertNotNil(snap.currentTool)
-        XCTAssertEqual(snap.currentTool?.name, "Bash")
+        XCTAssertEqual(snap.activeTools.count, 1)
+        XCTAssertEqual(snap.activeTools.first?.name, "Bash")
+        XCTAssertNil(snap.currentTool, "currentTool is deprecated and should always be nil")
+    }
+
+    func testThreeConcurrentToolUsesProduceThreeActiveTools() async {
+        let tailer = TranscriptTailer(sessionId: "para", cwd: URL(fileURLWithPath: "/tmp"))
+        let json: [String: Any] = [
+            "type": "assistant",
+            "message": [
+                "model": "claude-opus-4-7",
+                "content": [
+                    ["type": "tool_use", "id": "a", "name": "Bash", "input": ["command": "one"]],
+                    ["type": "tool_use", "id": "b", "name": "Bash", "input": ["command": "two"]],
+                    ["type": "tool_use", "id": "c", "name": "Read", "input": ["file_path": "/tmp/x"]],
+                ],
+            ],
+        ]
+        await tailer._test_processLine(jsonString(json))
+        let snap = await tailer._test_state
+        XCTAssertEqual(snap.activeTools.count, 3)
+        // Active tools are sorted by startedAt ascending — all three started
+        // from the same assistant message timestamp, so ordering by id is
+        // implementation-defined; just check the set.
+        XCTAssertEqual(Set(snap.activeTools.map(\.id)), ["a", "b", "c"])
     }
 
     // MARK: - Test helpers

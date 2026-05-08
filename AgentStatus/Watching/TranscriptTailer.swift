@@ -26,7 +26,10 @@ actor TranscriptTailer {
 
     // Derived state — accumulated across messages.
     private var state = EnrichedSession()
-    private var toolStarts: [String: (name: String, preview: String, at: Date)] = [:]
+    private var toolStarts: [String: (name: String, preview: String, at: Date, inputJSON: Data?)] = [:]
+    private var recentToolsRing: [CompletedTool] = []
+    private static let recentToolsCap = 10
+    private var activeAndRecentDirty = false
 
     init(sessionId: String, cwd: URL, pollInterval: TimeInterval = 1.0) {
         self.sessionId = sessionId
@@ -133,6 +136,8 @@ actor TranscriptTailer {
                 pendingPartialLine = ""
                 state = EnrichedSession()
                 toolStarts.removeAll()
+                recentToolsRing.removeAll()
+                activeAndRecentDirty = false
             }
             guard size > offset else { return }
 
@@ -235,10 +240,23 @@ actor TranscriptTailer {
             // tool_result blocks?
             for block in blocks {
                 if (block["type"] as? String) == "tool_result" {
-                    if let id = block["tool_use_id"] as? String, toolStarts[id] != nil {
+                    if let id = block["tool_use_id"] as? String, let starting = toolStarts[id] {
+                        let active = ActiveTool(
+                            id: id,
+                            name: starting.name,
+                            preview: starting.preview,
+                            startedAt: starting.at,
+                            rawInputJSON: starting.inputJSON
+                        )
+                        let isError = (block["is_error"] as? Bool) == true
+                        let completion = CompletedTool(completing: active, isError: isError, at: Date())
+                        recentToolsRing.append(completion)
+                        if recentToolsRing.count > Self.recentToolsCap {
+                            recentToolsRing.removeFirst(recentToolsRing.count - Self.recentToolsCap)
+                        }
                         toolStarts.removeValue(forKey: id)
-                        // Recompute "current tool" from any remaining starts.
-                        recomputeCurrentTool()
+                        activeAndRecentDirty = true
+                        recomputeActiveAndRecent()
                     }
                     if (block["is_error"] as? Bool) == true {
                         state.errorCount += 1
@@ -290,27 +308,41 @@ actor TranscriptTailer {
                    let name = block["name"] as? String {
                     let input = block["input"] as? [String: Any] ?? [:]
                     let preview = ActiveTool.preview(toolName: name, input: input)
-                    toolStarts[id] = (name: name, preview: preview, at: now)
+                    let inputJSON = input.isEmpty ? nil
+                        : (try? JSONSerialization.data(withJSONObject: input))
+                    toolStarts[id] = (name: name, preview: preview, at: now, inputJSON: inputJSON)
+                    activeAndRecentDirty = true
                 }
             default:
                 continue
             }
         }
-        recomputeCurrentTool()
+        recomputeActiveAndRecent()
     }
 
-    private func recomputeCurrentTool() {
-        // Pick the most recent in-flight tool.
-        guard let entry = toolStarts.max(by: { $0.value.at < $1.value.at }) else {
-            state.currentTool = nil
-            return
-        }
-        state.currentTool = ActiveTool(
-            id: entry.key,
-            name: entry.value.name,
-            preview: entry.value.preview,
-            startedAt: entry.value.at
-        )
+    /// Snapshot `toolStarts` into `state.activeTools` (sorted by startedAt asc)
+    /// and `recentToolsRing` into `state.recentTools` (newest-first).
+    /// Called only when `toolStarts` or `recentToolsRing` mutates; the
+    /// `activeAndRecentDirty` flag prevents redundant recomputes per tick.
+    private func recomputeActiveAndRecent() {
+        guard activeAndRecentDirty else { return }
+        activeAndRecentDirty = false
+
+        state.activeTools = toolStarts
+            .map {
+                ActiveTool(
+                    id: $0.key,
+                    name: $0.value.name,
+                    preview: $0.value.preview,
+                    startedAt: $0.value.at,
+                    rawInputJSON: $0.value.inputJSON
+                )
+            }
+            .sorted { $0.startedAt < $1.startedAt }
+
+        state.recentTools = Array(recentToolsRing.reversed())   // newest-first
+        // currentTool kept nil — deprecated; UI consumers migrate next.
+        state.currentTool = nil
     }
 
     private func parseTimestamp(_ s: String?) -> Date? {
