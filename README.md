@@ -4,8 +4,8 @@ A native macOS menu bar app that tells you what your AI coding agents are doing 
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue) ![Swift 6](https://img.shields.io/badge/Swift-6-orange)
 
-<!-- Drop a screenshot or animated GIF at docs/screenshot.png to render it here. -->
-![agent-status menu bar](docs/screenshot.png)
+<!-- Drop a screenshot or animated GIF at docs/screenshot.png and re-add an image link here. -->
+
 
 ## Features
 
@@ -27,7 +27,7 @@ Prerequisites:
 - [`xcodegen`](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`
 
 ```bash
-git clone https://github.com/<you>/agent-status.git
+git clone https://github.com/DeeAutonomous/agent-status.git
 cd agent-status
 xcodegen generate
 xcodebuild -project AgentStatus.xcodeproj -scheme AgentStatus -configuration Release \
@@ -125,7 +125,7 @@ PRs welcome. Run `xcodegen generate && xcodebuild test ...` before sending.
 
 ## License
 
-TBD — drop a `LICENSE` file (MIT or Apache-2.0 recommended) and update this section.
+[Apache-2.0](LICENSE).
 
 ---
 
