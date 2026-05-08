@@ -26,4 +26,10 @@ final class TranscriptParsingTests: XCTestCase {
         XCTAssertEqual(e.estimatedCost, 0)
         XCTAssertEqual(e.errorCount, 0)
     }
+
+    func testEnrichedSessionEmptyHasNoActiveOrRecentTools() {
+        let e = EnrichedSession.empty
+        XCTAssertEqual(e.activeTools, [])
+        XCTAssertEqual(e.recentTools, [])
+    }
 }

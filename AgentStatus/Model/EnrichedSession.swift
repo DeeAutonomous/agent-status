@@ -33,6 +33,14 @@ struct EnrichedSession: Hashable, Sendable {
     /// Total tool invocations (count of tool_use across all assistant messages).
     var toolCalls: Int = 0
 
+    /// All in-flight top-level tool calls, ordered by `startedAt` ascending.
+    /// Sidechain (sub-agent internal) tool calls are filtered out at ingestion.
+    var activeTools: [ActiveTool] = []
+
+    /// Recently-completed top-level tool calls, newest-first, capped at 10.
+    /// Sidechain tool calls are filtered out at ingestion.
+    var recentTools: [CompletedTool] = []
+
     static let empty = EnrichedSession()
 }
 
