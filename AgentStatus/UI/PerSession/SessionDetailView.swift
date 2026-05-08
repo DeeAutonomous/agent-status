@@ -25,6 +25,7 @@ struct SessionDetailView: View {
                         waitingSection(for: s)
                         Divider()
                     }
+                    runningNowSection(for: s)
                     sparkline(for: s)
                     Divider()
                     if settings.showTokensAndCost, let tokens = s.enriched?.tokens, tokens.grandTotal > 0 {
@@ -183,6 +184,65 @@ struct SessionDetailView: View {
         case .unknown:
             EmptyView()
         }
+    }
+
+    @ViewBuilder
+    private func runningNowSection(for s: SessionSnapshot) -> some View {
+        let active = s.enriched?.activeTools ?? []
+        if !active.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Running now (\(active.count))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                // ONE shared TimelineView wraps all rows — single 1 Hz tick
+                // for the whole section instead of one per tool. Lives only
+                // while the popover is on screen.
+                TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    let visible = Array(active.prefix(5))
+                    let overflow = active.count - visible.count
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(visible, id: \.id) { tool in
+                            runningRow(for: tool, now: ctx.date,
+                                       isWaitingChild: s.status == .waiting)
+                        }
+                        if overflow > 0 {
+                            Text("+\(overflow) more\u{2026}")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func runningRow(for tool: ActiveTool, now: Date, isWaitingChild: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(isWaitingChild ? .orange : .blue)
+            Text(tool.name)
+                .font(.system(size: 11, weight: .medium))
+            if !tool.preview.isEmpty {
+                Text(tool.preview)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer()
+            Text(formatElapsed(from: tool.startedAt, to: now))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func formatElapsed(from start: Date, to now: Date) -> String {
+        let secs = max(0, Int(now.timeIntervalSince(start)))
+        if secs < 60 { return "t+\(secs)s" }
+        let m = secs / 60, s = secs % 60
+        return "t+\(m)m\(s)s"
     }
 
     private func sparkline(for s: SessionSnapshot) -> some View {
