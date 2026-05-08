@@ -21,8 +21,8 @@ struct SessionDetailView: View {
                 if let s = snap {
                     header(for: s, now: now)
                     Divider()
-                    if settings.showCurrentTool, let tool = s.enriched?.currentTool {
-                        currentTool(tool)
+                    if s.status == .waiting {
+                        waitingSection(for: s)
                         Divider()
                     }
                     sparkline(for: s)
@@ -101,6 +101,87 @@ struct SessionDetailView: View {
                     .truncationMode(.middle)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func waitingSection(for s: SessionSnapshot) -> some View {
+        let pending = s.enriched?.activeTools.last
+        let pendingInput: [String: Any]? = pending?.rawInputJSON.flatMap {
+            (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any]
+        }
+        if let display = TranscriptTailer.waitingDisplay(
+            for: s.waitingFor, pending: pending, pendingInput: pendingInput
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "bell.badge.fill").foregroundStyle(.orange)
+                    Text("Waiting · \(headlineLabel(for: display))")
+                        .font(.subheadline.weight(.semibold))
+                }
+                detailLines(for: display)
+            }
+        }
+    }
+
+    private func headlineLabel(for d: WaitingDisplay) -> String {
+        switch d {
+        case .tool(let name, _):              return "approve \(name)"
+        case .askUserQuestion:                 return "approve AskUserQuestion"
+        case .subagent:                        return "approve Task"
+        case .unknown(let raw):                return raw
+        }
+    }
+
+    @ViewBuilder
+    private func detailLines(for d: WaitingDisplay) -> some View {
+        switch d {
+        case .tool(_, let preview):
+            if !preview.isEmpty {
+                Text(preview)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .truncationMode(.tail)
+                    .textSelection(.enabled)
+            }
+
+        case .askUserQuestion(let text, let options):
+            VStack(alignment: .leading, spacing: 2) {
+                if !text.isEmpty {
+                    Text("\u{201C}\(text)\u{201D}")     // "…"
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+                ForEach(Array(options.prefix(4).enumerated()), id: \.offset) { idx, label in
+                    Text("  \(idx + 1). \(label)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+
+        case .subagent(let description, let prompt):
+            VStack(alignment: .leading, spacing: 2) {
+                if !description.isEmpty {
+                    Text(description)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if !prompt.isEmpty {
+                    Text(prompt.count > 100 ? String(prompt.prefix(100)) + "\u{2026}" : prompt)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
+            }
+
+        case .unknown:
+            EmptyView()
         }
     }
 
