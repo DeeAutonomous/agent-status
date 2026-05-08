@@ -42,6 +42,21 @@ struct ActiveTool: Hashable, Sendable {
     let name: String            // "Bash", "Edit", "Write", "Read", etc.
     let preview: String         // one-line summary of the tool's input
     let startedAt: Date
+    /// JSON-encoded copy of the tool's `input` dict, if any. Stored as `Data`
+    /// so the struct stays `Hashable, Sendable` under Swift 6 strict concurrency.
+    /// Decoded at render time by callers that need question text / options /
+    /// subagent prompt fields. Nil when input was empty or un-encodable.
+    /// Defaulted so call sites that don't yet thread input through compile cleanly
+    /// during the multi-task migration.
+    let rawInputJSON: Data?
+
+    init(id: String, name: String, preview: String, startedAt: Date, rawInputJSON: Data? = nil) {
+        self.id = id
+        self.name = name
+        self.preview = preview
+        self.startedAt = startedAt
+        self.rawInputJSON = rawInputJSON
+    }
 }
 
 extension ActiveTool {
@@ -72,5 +87,28 @@ extension ActiveTool {
         default:
             return ""
         }
+    }
+}
+
+/// One completed top-level tool call — pushed into `EnrichedSession.recentTools`
+/// when its `tool_result` arrives. Sidechain (subagent-internal) tool calls do
+/// not enter this list.
+struct CompletedTool: Hashable, Sendable {
+    let id: String              // Anthropic tool_use_id
+    let name: String            // "Bash", "Edit", "Agent", ...
+    let preview: String         // Reuses ActiveTool.preview at start time
+    let startedAt: Date
+    let endedAt: Date
+    let isError: Bool           // From the tool_result.is_error block
+
+    var duration: TimeInterval { max(0, endedAt.timeIntervalSince(startedAt)) }
+
+    init(completing active: ActiveTool, isError: Bool, at end: Date) {
+        self.id = active.id
+        self.name = active.name
+        self.preview = active.preview
+        self.startedAt = active.startedAt
+        self.endedAt = end
+        self.isError = isError
     }
 }
