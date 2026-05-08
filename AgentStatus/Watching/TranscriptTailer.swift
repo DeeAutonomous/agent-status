@@ -212,6 +212,7 @@ actor TranscriptTailer {
             handleUserMessage(json)
 
         case "assistant":
+            if Self.isSidechain(json) { return }
             handleAssistantMessage(json)
 
         default:
@@ -320,4 +321,14 @@ actor TranscriptTailer {
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f.date(from: s)
     }
+
+    // MARK: - Test-only hooks
+    //
+    // Bypass file I/O so unit tests can drive the actor directly. Underscored
+    // names mark them as not part of the production surface.
+    func _test_processLine(_ line: String) {
+        process(line: line)
+    }
+
+    var _test_state: EnrichedSession { state }
 }
