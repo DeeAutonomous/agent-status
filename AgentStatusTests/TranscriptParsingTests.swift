@@ -79,6 +79,98 @@ final class TranscriptParsingTests: XCTestCase {
         XCTAssertEqual(Set(snap.activeTools.map(\.id)), ["a", "b", "c"])
     }
 
+    // MARK: - recentTools ring + error carry-through
+
+    func testToolStartThenResultMovesToRecentTools() async {
+        let tailer = TranscriptTailer(sessionId: "rt", cwd: URL(fileURLWithPath: "/tmp"))
+
+        let start: [String: Any] = [
+            "type": "assistant",
+            "message": [
+                "model": "claude-opus-4-7",
+                "content": [
+                    ["type": "tool_use", "id": "u1", "name": "Bash",
+                     "input": ["command": "ls"]],
+                ],
+            ],
+        ]
+        await tailer._test_processLine(jsonString(start))
+
+        let result: [String: Any] = [
+            "type": "user",
+            "message": [
+                "role": "user",
+                "content": [
+                    ["type": "tool_result", "tool_use_id": "u1",
+                     "is_error": false],
+                ],
+            ],
+        ]
+        await tailer._test_processLine(jsonString(result))
+
+        let snap = await tailer._test_state
+        XCTAssertTrue(snap.activeTools.isEmpty, "completed tool should leave activeTools")
+        XCTAssertEqual(snap.recentTools.count, 1)
+        XCTAssertEqual(snap.recentTools.first?.id, "u1")
+        XCTAssertEqual(snap.recentTools.first?.name, "Bash")
+        XCTAssertFalse(snap.recentTools.first?.isError ?? true)
+    }
+
+    func testRecentToolsRingCapsAt10() async {
+        let tailer = TranscriptTailer(sessionId: "ring", cwd: URL(fileURLWithPath: "/tmp"))
+        // 12 start+result pairs → only the last 10 should remain.
+        for i in 0..<12 {
+            let id = "u\(i)"
+            await tailer._test_processLine(jsonString([
+                "type": "assistant",
+                "message": [
+                    "content": [
+                        ["type": "tool_use", "id": id, "name": "Bash",
+                         "input": ["command": "echo \(i)"]],
+                    ],
+                ],
+            ]))
+            await tailer._test_processLine(jsonString([
+                "type": "user",
+                "message": [
+                    "content": [
+                        ["type": "tool_result", "tool_use_id": id, "is_error": false],
+                    ],
+                ],
+            ]))
+        }
+        let snap = await tailer._test_state
+        XCTAssertEqual(snap.recentTools.count, 10)
+        // Newest first: the last completion (u11) should be at index 0.
+        XCTAssertEqual(snap.recentTools.first?.id, "u11")
+        // u0 and u1 should be gone.
+        XCTAssertFalse(snap.recentTools.contains { $0.id == "u0" })
+        XCTAssertFalse(snap.recentTools.contains { $0.id == "u1" })
+    }
+
+    func testToolErrorIsCarriedIntoRecent() async {
+        let tailer = TranscriptTailer(sessionId: "err", cwd: URL(fileURLWithPath: "/tmp"))
+        await tailer._test_processLine(jsonString([
+            "type": "assistant",
+            "message": [
+                "content": [
+                    ["type": "tool_use", "id": "x", "name": "Bash",
+                     "input": ["command": "false"]],
+                ],
+            ],
+        ]))
+        await tailer._test_processLine(jsonString([
+            "type": "user",
+            "message": [
+                "content": [
+                    ["type": "tool_result", "tool_use_id": "x", "is_error": true],
+                ],
+            ],
+        ]))
+        let snap = await tailer._test_state
+        XCTAssertEqual(snap.recentTools.first?.isError, true)
+    }
+
     // MARK: - Test helpers
 
     private func makeAssistantToolUseJSON(toolUseId: String, name: String, isSidechain: Bool) -> [String: Any] {
