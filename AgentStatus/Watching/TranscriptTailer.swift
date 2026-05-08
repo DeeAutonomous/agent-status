@@ -59,6 +59,15 @@ actor TranscriptTailer {
         UInt64(max(0, seconds) * 1_000_000_000)
     }
 
+    /// Extract the title from an `ai-title` event. The on-disk schema is
+    /// `{ "type":"ai-title", "aiTitle":"…", "sessionId":"…" }` — note the
+    /// camel-cased `aiTitle` key (not `title`). Empty strings are treated as
+    /// absent. Static + pure so `TranscriptTailerTests` can pin the key.
+    static func aiTitle(fromEvent json: [String: Any]) -> String? {
+        guard let t = json["aiTitle"] as? String, !t.isEmpty else { return nil }
+        return t
+    }
+
     func stop() {
         pollTask?.cancel()
         pollTask = nil
@@ -147,8 +156,7 @@ actor TranscriptTailer {
             if let m = json["permissionMode"] as? String { state.permissionMode = m }
 
         case "ai-title":
-            // Schema observed: { "type":"ai-title", "title":"..." } (best-effort)
-            if let t = json["title"] as? String, !t.isEmpty { state.aiTitle = t }
+            if let t = Self.aiTitle(fromEvent: json) { state.aiTitle = t }
 
         case "agent-name":
             if let n = json["name"] as? String { state.subagentName = n }

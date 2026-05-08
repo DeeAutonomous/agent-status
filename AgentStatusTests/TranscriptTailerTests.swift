@@ -22,4 +22,35 @@ final class TranscriptTailerTests: XCTestCase {
     func testSleepNanosClampsNegativeToZero() {
         XCTAssertEqual(TranscriptTailer.sleepNanos(forPollInterval: -1.0), 0)
     }
+
+    // MARK: - ai-title parsing
+    //
+    // Real schema observed in `~/.claude/projects/*.jsonl`:
+    //   {"type":"ai-title","aiTitle":"…","sessionId":"…"}
+    // An earlier version of `process(line:)` read the wrong key (`"title"`),
+    // so the AI title never made it onto the snapshot — the UI toggle was
+    // wired up but always rendered nothing.
+
+    func testAITitleEventReadsAITitleField() {
+        let event: [String: Any] = [
+            "type": "ai-title",
+            "aiTitle": "Check git logs",
+            "sessionId": "abc",
+        ]
+        XCTAssertEqual(TranscriptTailer.aiTitle(fromEvent: event), "Check git logs")
+    }
+
+    func testAITitleEventIgnoresLegacyTitleKey() {
+        // Guards the bug: previously we read `"title"`. That key must not win.
+        let event: [String: Any] = [
+            "type": "ai-title",
+            "title": "wrong key",
+        ]
+        XCTAssertNil(TranscriptTailer.aiTitle(fromEvent: event))
+    }
+
+    func testAITitleEventTreatsEmptyStringAsAbsent() {
+        let event: [String: Any] = ["type": "ai-title", "aiTitle": ""]
+        XCTAssertNil(TranscriptTailer.aiTitle(fromEvent: event))
+    }
 }
