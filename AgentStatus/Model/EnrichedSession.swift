@@ -41,6 +41,26 @@ struct EnrichedSession: Hashable, Sendable {
     /// Sidechain tool calls are filtered out at ingestion.
     var recentTools: [CompletedTool] = []
 
+    /// Equality view used by `SessionStore.uiEqual` to gate UI republish events.
+    /// Excludes `activeTools` and `recentTools` so detail-only churn doesn't
+    /// thrash the menu bar. Keep this in sync with the row's actual visual
+    /// dependencies — anything the menu-bar row reads must compare here.
+    func coreEqual(_ other: EnrichedSession) -> Bool {
+        currentModel == other.currentModel
+            && lastStopReason == other.lastStopReason
+            && permissionMode == other.permissionMode
+            && aiTitle == other.aiTitle
+            && lastUserPrompt == other.lastUserPrompt
+            && lastAssistantText == other.lastAssistantText
+            && subagentName == other.subagentName
+            && tokens == other.tokens
+            && estimatedCost == other.estimatedCost
+            && errorCount == other.errorCount
+            && assistantTurns == other.assistantTurns
+            && toolCalls == other.toolCalls
+            && currentTool == other.currentTool
+    }
+
     static let empty = EnrichedSession()
 }
 
