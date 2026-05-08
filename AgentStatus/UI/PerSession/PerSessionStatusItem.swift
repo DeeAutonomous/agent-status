@@ -72,7 +72,7 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         guard let host = hostingView else { return }
 
         // Always refresh tooltip — cheap, no view-tree mutation.
-        item.button?.toolTip = "\(snapshot.cwd.path) — \(snapshot.status.displayName)\(snapshot.waitingFor.map { " — \($0)" } ?? "")"
+        item.button?.toolTip = Self.tooltip(for: snapshot)
 
         if snapshot.status == lastStatus && newTitle == lastTitle && newDim == lastDim {
             return
@@ -119,6 +119,35 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         if popover.isShown { popover.performClose(nil) }
         popover.contentViewController = nil
         NSStatusBar.system.removeStatusItem(item)
+    }
+
+    /// Build a multi-line tooltip from a snapshot. Pure — no side effects.
+    /// Free to call on every poll: the tooltip is hover-only and never causes
+    /// a layout pass.
+    static func tooltip(for snap: SessionSnapshot) -> String {
+        var lines: [String] = []
+        var headline = "\(snap.cwd.path) \u{2014} \(snap.status.displayName)"
+        if let w = snap.waitingFor { headline += " \u{2014} \(w)" }
+
+        let active = snap.enriched?.activeTools ?? []
+        if active.count > 1 {
+            headline += " \u{2014} \(active.count) tools running"
+        } else if active.count == 1, let one = active.first {
+            let trimmedPreview = one.preview.trimmingCharacters(in: .whitespaces)
+            let suffix = trimmedPreview.isEmpty ? one.name : "\(one.name) \(trimmedPreview)"
+            headline += " \u{2014} \(suffix)"
+        }
+        lines.append(headline)
+
+        // Second line: pending tool preview when waiting, or active list when running ≥ 2.
+        if snap.status == .waiting, let pending = active.last, !pending.preview.isEmpty {
+            lines.append("  \(pending.preview)")
+        } else if active.count > 1 {
+            let names = active.map(\.name).joined(separator: ", ")
+            lines.append("  \(names)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 }
 
