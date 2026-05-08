@@ -32,4 +32,54 @@ final class TranscriptParsingTests: XCTestCase {
         XCTAssertEqual(e.activeTools, [])
         XCTAssertEqual(e.recentTools, [])
     }
+
+    // MARK: - Sidechain filter
+    //
+    // Top-level assistant messages bump toolCalls; sidechain ones must not.
+
+    func testSidechainAssistantMessageDoesNotIncrementToolCalls() async {
+        let tailer = TranscriptTailer(sessionId: "sc-test", cwd: URL(fileURLWithPath: "/tmp"))
+        let json = makeAssistantToolUseJSON(toolUseId: "x", name: "Bash", isSidechain: true)
+        await tailer._test_processLine(jsonString(json))
+        let snap = await tailer._test_state
+        XCTAssertEqual(snap.toolCalls, 0, "sidechain tool_use must not bump counter")
+        XCTAssertTrue(snap.activeTools.isEmpty)
+    }
+
+    func testTopLevelAssistantMessageIncrementsToolCalls() async {
+        let tailer = TranscriptTailer(sessionId: "tl-test", cwd: URL(fileURLWithPath: "/tmp"))
+        let json = makeAssistantToolUseJSON(toolUseId: "x", name: "Bash", isSidechain: false)
+        await tailer._test_processLine(jsonString(json))
+        let snap = await tailer._test_state
+        XCTAssertEqual(snap.toolCalls, 1)
+        XCTAssertNotNil(snap.currentTool)
+        XCTAssertEqual(snap.currentTool?.name, "Bash")
+    }
+
+    // MARK: - Test helpers
+
+    private func makeAssistantToolUseJSON(toolUseId: String, name: String, isSidechain: Bool) -> [String: Any] {
+        var top: [String: Any] = [
+            "type": "assistant",
+            "message": [
+                "model": "claude-opus-4-7",
+                "stop_reason": "tool_use",
+                "content": [
+                    [
+                        "type": "tool_use",
+                        "id": toolUseId,
+                        "name": name,
+                        "input": ["command": "echo hi"],
+                    ],
+                ],
+            ],
+        ]
+        if isSidechain { top["isSidechain"] = true }
+        return top
+    }
+
+    private func jsonString(_ obj: [String: Any]) -> String {
+        let data = try! JSONSerialization.data(withJSONObject: obj)
+        return String(data: data, encoding: .utf8)!
+    }
 }
