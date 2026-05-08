@@ -68,6 +68,12 @@ actor TranscriptTailer {
         return t
     }
 
+    /// True when an `assistant` JSON record is part of a sub-agent's sidechain.
+    /// Top-level assistant messages omit this key or set it to `false`.
+    static func isSidechain(_ json: [String: Any]) -> Bool {
+        (json["isSidechain"] as? Bool) == true
+    }
+
     func stop() {
         pollTask?.cancel()
         pollTask = nil
