@@ -1,0 +1,74 @@
+name: AgentStatus
+options:
+  bundleIdPrefix: ai.autonomous
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_IDENTITY: "-"
+
+targets:
+  AgentStatus:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: AgentStatus
+        excludes:
+          - "Preview Content/**"
+      - path: AgentStatus/Preview Content
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.autonomous.AgentStatus
+        PRODUCT_NAME: AgentStatus
+        INFOPLIST_FILE: AgentStatus/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AgentStatus/AgentStatus.entitlements
+        ENABLE_APP_SANDBOX: NO
+        DEVELOPMENT_ASSET_PATHS: "\"AgentStatus/Preview Content\""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: YES
+
+  AgentStatusTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - AgentStatusTests
+    dependencies:
+      - target: AgentStatus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.autonomous.AgentStatusTests
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/AgentStatus.app/Contents/MacOS/AgentStatus"
+
+schemes:
+  AgentStatus:
+    build:
+      targets:
+        AgentStatus: all
+        AgentStatusTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AgentStatusTests
+    archive:
+      config: Release

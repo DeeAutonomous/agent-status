@@ -1,0 +1,16 @@
+# Build artifacts
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+xcuserdata/
+
+# xcodegen output (regeneratable from project.yml)
+AgentStatus.xcodeproj/
+
+# macOS
+.DS_Store
+
+# Misc
+*.swp
+*.log
