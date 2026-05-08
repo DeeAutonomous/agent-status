@@ -53,4 +53,23 @@ final class TranscriptTailerTests: XCTestCase {
         let event: [String: Any] = ["type": "ai-title", "aiTitle": ""]
         XCTAssertNil(TranscriptTailer.aiTitle(fromEvent: event))
     }
+
+    // MARK: - isSidechain
+
+    func testIsSidechainTrueWhenFlagPresent() {
+        XCTAssertTrue(TranscriptTailer.isSidechain(["isSidechain": true]))
+    }
+
+    func testIsSidechainFalseWhenFlagAbsent() {
+        XCTAssertFalse(TranscriptTailer.isSidechain([:]))
+    }
+
+    func testIsSidechainFalseWhenFlagFalse() {
+        XCTAssertFalse(TranscriptTailer.isSidechain(["isSidechain": false]))
+    }
+
+    func testIsSidechainFalseWhenFlagWrongType() {
+        // Bool-only — string "true" must not count as truthy.
+        XCTAssertFalse(TranscriptTailer.isSidechain(["isSidechain": "true"]))
+    }
 }
