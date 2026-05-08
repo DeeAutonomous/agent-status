@@ -14,6 +14,7 @@ A native macOS menu bar app that tells you what your AI coding agents are doing 
 - **At-a-glance menu bar** — aggregate icon morphs by dominant status (idle / busy / waiting / error); optional per-session item per agent with its cwd basename.
 - **Rich dashboard** (click the aggregate icon) — for every live session: animated status indicator, **currently-running tool with live duration** ("Bash: `xcodebuild …` (47s)"), permission-mode chip (auto / plan / bypass), tokens & estimated USD cost, model chip, AI-generated session title, 60 s activity sparkline.
 - **Per-session detail popover** (click any per-session item) — full token split (input / output / cache_read / cache_write), last user prompt, last assistant reply, sub-agent activity, error count, full metadata.
+- **Concurrency-aware** — the per-session popover lists every in-flight tool with live elapsed timers, recent completions with durations, and tool-aware "waiting for approval" detail when blocked on a permission gate.
 - **Native notifications** — three independently toggleable triggers: `waiting > 30 s`, `tool error`, `long task completed`.
 - **Always-on** — optional LaunchAgent installer for autostart at login.
 - **Pluggable providers** — `SessionProvider` protocol; Claude Code ships today, Codex stub already wired.
@@ -119,7 +120,7 @@ AgentStatus/
 ├── UI/                     # NotificationManager
 ├── LaunchAgent/            # Installer + plist payload builder
 └── Util/                   # Debouncer, ElapsedFormatter, Log
-AgentStatusTests/           # XCTest target — 27 tests
+AgentStatusTests/           # XCTest target — 78 tests
 ```
 
 ## Contributing
