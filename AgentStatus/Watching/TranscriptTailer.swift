@@ -374,5 +374,11 @@ actor TranscriptTailer {
         process(line: line)
     }
 
+    /// Batch variant: process many lines inside a single actor hop to avoid
+    /// per-line scheduling overhead. Used by PerfBenchmarks.
+    func _test_processLines(_ lines: [String]) {
+        for line in lines { process(line: line) }
+    }
+
     var _test_state: EnrichedSession { state }
 }
