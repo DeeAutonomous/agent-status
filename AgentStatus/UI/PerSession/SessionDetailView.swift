@@ -82,30 +82,6 @@ struct SessionDetailView: View {
         return s.cwdBasename
     }
 
-    private func currentTool(_ tool: ActiveTool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Image(systemName: "terminal").foregroundStyle(.tint)
-                Text("Running \(tool.name)").font(.subheadline.weight(.semibold))
-                Spacer()
-                TimelineView(.periodic(from: tool.startedAt, by: 1)) { ctx in
-                    Text(ElapsedFormatter.short(from: tool.startedAt, to: ctx.date))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-            if !tool.preview.isEmpty {
-                Text(tool.preview)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-            }
-        }
-    }
-
     @ViewBuilder
     private func waitingSection(for s: SessionSnapshot) -> some View {
         let pending = s.enriched?.activeTools.last
