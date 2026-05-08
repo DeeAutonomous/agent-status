@@ -26,6 +26,7 @@ struct SessionDetailView: View {
                         Divider()
                     }
                     runningNowSection(for: s)
+                    recentToolsSection(for: s)
                     sparkline(for: s)
                     Divider()
                     if settings.showTokensAndCost, let tokens = s.enriched?.tokens, tokens.grandTotal > 0 {
@@ -243,6 +244,52 @@ struct SessionDetailView: View {
         if secs < 60 { return "t+\(secs)s" }
         let m = secs / 60, s = secs % 60
         return "t+\(m)m\(s)s"
+    }
+
+    @ViewBuilder
+    private func recentToolsSection(for s: SessionSnapshot) -> some View {
+        let recent = s.enriched?.recentTools ?? []
+        if !recent.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Recent (\(recent.count))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(recent, id: \.id) { tool in
+                        recentRow(for: tool)
+                    }
+                }
+            }
+        }
+    }
+
+    private func recentRow(for tool: CompletedTool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: tool.isError ? "xmark" : "checkmark")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tool.isError ? .red : .green)
+            Text(tool.name)
+                .font(.system(size: 11, weight: .medium))
+            if !tool.preview.isEmpty {
+                Text(tool.preview)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer()
+            Text(formatDuration(tool.duration))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(tool.isError ? .red.opacity(0.8) : .secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func formatDuration(_ d: TimeInterval) -> String {
+        if d < 1 { return String(format: "%.1fs", d) }
+        if d < 60 { return String(format: "%.1fs", d) }
+        let m = Int(d) / 60, s = Int(d) % 60
+        return "\(m)m\(s)s"
     }
 
     private func sparkline(for s: SessionSnapshot) -> some View {
