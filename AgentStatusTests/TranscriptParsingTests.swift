@@ -171,6 +171,51 @@ final class TranscriptParsingTests: XCTestCase {
         XCTAssertEqual(snap.recentTools.first?.isError, true)
     }
 
+    func testChunkedReadParsesLargeTranscriptInOneTick() async throws {
+        // Build a 2 MB synthetic transcript and feed it via the real file-based
+        // tick path. The tailer must parse it without OOM and produce expected
+        // state, regardless of total file size.
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("agent-status-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Encode the cwd as Claude does: replace "/" with "-".
+        let projects = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects", isDirectory: true)
+        try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+        let encoded = dir.path.replacingOccurrences(of: "/", with: "-")
+        let projDir = projects.appendingPathComponent(encoded, isDirectory: true)
+        try FileManager.default.createDirectory(at: projDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: projDir) }
+
+        let sessionId = "chunk-\(UUID().uuidString)"
+        let file = projDir.appendingPathComponent("\(sessionId).jsonl")
+
+        // ~2 MB of assistant tool_use lines (each ~200 bytes → ~10 000 lines).
+        let oneLine = """
+        {"type":"assistant","message":{"model":"claude-opus-4-7","content":[{"type":"tool_use","id":"id-XXXX","name":"Bash","input":{"command":"echo XXXX"}}]}}
+        """
+        var blob = ""
+        for i in 0..<10_000 {
+            blob += oneLine.replacingOccurrences(of: "XXXX", with: String(i)) + "\n"
+        }
+        try blob.write(to: file, atomically: true, encoding: .utf8)
+
+        let tailer = TranscriptTailer(sessionId: sessionId, cwd: dir, pollInterval: 0.05)
+        await tailer.start()
+        defer { Task { await tailer.stop() } }
+
+        // Drain a few ticks until the file is fully read. Cap so the test
+        // can't hang.
+        var snap = EnrichedSession.empty
+        for await s in tailer.snapshots.prefix(40) {
+            snap = s
+            if snap.toolCalls >= 10_000 { break }
+        }
+        XCTAssertEqual(snap.toolCalls, 10_000, "all lines should be parsed across multiple chunks")
+    }
+
     // MARK: - Test helpers
 
     private func makeAssistantToolUseJSON(toolUseId: String, name: String, isSidechain: Bool) -> [String: Any] {

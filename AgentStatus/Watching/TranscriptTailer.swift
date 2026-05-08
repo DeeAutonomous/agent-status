@@ -141,11 +141,16 @@ actor TranscriptTailer {
             }
             guard size > offset else { return }
 
+            // Chunked read: bound peak memory regardless of file size. A resumed
+            // multi-MB transcript drains across multiple ticks instead of a
+            // single jumbo allocation.
+            let chunkCap: UInt64 = 1_048_576    // 1 MB
+            let toRead = min(size - offset, chunkCap)
             let handle = try FileHandle(forReadingFrom: url)
             try handle.seek(toOffset: offset)
-            let data = handle.readData(ofLength: Int(size - offset))
+            let data = handle.readData(ofLength: Int(toRead))
             try handle.close()
-            offset = size
+            offset += toRead
 
             guard let chunk = String(data: data, encoding: .utf8) else { return }
             let combined = pendingPartialLine + chunk
