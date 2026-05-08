@@ -15,6 +15,7 @@ actor TranscriptTailer {
     let sessionId: String
     let cwd: URL
     private let pollInterval: TimeInterval
+    private let perf: PerfStats?
 
     nonisolated let snapshots: AsyncStream<EnrichedSession>
     private let continuation: AsyncStream<EnrichedSession>.Continuation
@@ -31,10 +32,11 @@ actor TranscriptTailer {
     private static let recentToolsCap = 10
     private var activeAndRecentDirty = false
 
-    init(sessionId: String, cwd: URL, pollInterval: TimeInterval = 1.0) {
+    init(sessionId: String, cwd: URL, pollInterval: TimeInterval = 1.0, perf: PerfStats? = nil) {
         self.sessionId = sessionId
         self.cwd = cwd
         self.pollInterval = pollInterval
+        self.perf = perf
 
         var cont: AsyncStream<EnrichedSession>.Continuation!
         self.snapshots = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { c in cont = c }
@@ -146,6 +148,7 @@ actor TranscriptTailer {
             // single jumbo allocation.
             let chunkCap: UInt64 = 1_048_576    // 1 MB
             let toRead = min(size - offset, chunkCap)
+            if let perf = perf { Task { await perf.observe(bytes: toRead); await perf.observe(tick: 1) } }
             let handle = try FileHandle(forReadingFrom: url)
             try handle.seek(toOffset: offset)
             let data = handle.readData(ofLength: Int(toRead))
@@ -164,6 +167,10 @@ actor TranscriptTailer {
             }
             for line in lines where !line.isEmpty {
                 process(line: String(line))
+            }
+            if let perf = perf {
+                let lineCount = UInt64(lines.filter { !$0.isEmpty }.count)
+                Task { await perf.observe(lines: lineCount); await perf.observe(yield: 1) }
             }
             continuation.yield(state)
         } catch {
