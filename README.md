@@ -1,6 +1,6 @@
 # agent-status
 
-<img width="629" height="283" alt="telegram-cloud-document-5-6336907508589797058" src="https://github.com/user-attachments/assets/7be4ad0f-6ec3-463e-976a-c86da71e2d51" />
+<img width="629" height="283" alt="2026-05-08 16 02 16" src="https://github.com/user-attachments/assets/acb80ebf-0992-45d6-a0f6-cced71279bf2" />
 
 A native macOS menu bar app that tells you what your AI coding agents are doing — right now. It tails the on-disk state Claude Code (and, soon, Codex) writes locally and surfaces the things you actually care about: which tool is running, the cumulative token spend, the permission mode, and whether anything is blocked waiting for your input. Zero network calls. ~15 MB RAM, 0 % CPU idle.
 
