@@ -114,6 +114,9 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         let bottom: String
         let dim: Bool
         let hasRecentError: Bool
+        /// Number of in-flight tool calls — drives the multi-dot icon for
+        /// busy/running states. Zero in all other states.
+        let activeToolCount: Int
     }
 
     /// Pure: snapshot + now → RowData. The `now: Date` parameter is the
@@ -133,12 +136,16 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         let recent = snap.enriched?.recentTools ?? []
         let hasRecentError = recent.prefix(5).contains { $0.isError }
 
+        let isActive = (snap.status == .busy || snap.status == .running)
+        let activeToolCount = isActive ? (snap.enriched?.activeTools.count ?? 0) : 0
+
         return RowData(
             status: snap.status,
             title: title,
             bottom: bottom,
             dim: !snap.isAlive,
-            hasRecentError: hasRecentError
+            hasRecentError: hasRecentError,
+            activeToolCount: activeToolCount
         )
     }
 
@@ -184,7 +191,13 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
                 let head = trimmed.isEmpty ? tool.name : "\(tool.name) \(trimmed)"
                 return head + minutesSuffix
             }
-            return "\(active.count) tools\(minutesSuffix)"
+            // Multi-tool: the multi-dot icon conveys count; the bottom row
+            // lists tool names. First 3 visible, "+N more" if larger.
+            let names = active.map(\.name)
+            let visible = Array(names.prefix(3)).joined(separator: ", ")
+            let overflow = names.count - 3
+            let head = overflow > 0 ? "\(visible) +\(overflow) more" : visible
+            return head + minutesSuffix
         }
 
         // Status-word-only states (idle, busy-without-active, stopped, paused,
@@ -259,21 +272,61 @@ struct PerSessionLabel: View {
         .frame(width: 180, height: NSStatusBar.system.thickness, alignment: .leading)
     }
 
-    /// Icon stack: base StaticStatusIcon with an optional red pip overlay in
-    /// the bottom-right corner. The pip is a small filled circle ~4pt across,
-    /// drawn with a thin background-color ring so it stays visible against
-    /// any menu bar tint.
+    /// Icon column: multi-dot for busy/running (N small blue dots = N in-flight
+    /// tools), single StaticStatusIcon for every other state. Red pip overlays
+    /// the bottom-right corner when `hasRecentError` is set — bool-gated, so it
+    /// only crosses a redraw boundary when the flag flips.
+    @ViewBuilder
     private var iconWithPip: some View {
-        StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
-            .overlay(alignment: .bottomTrailing) {
-                if row.hasRecentError {
-                    Circle()
-                        .fill(.red)
-                        .frame(width: 4, height: 4)
-                        .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 0.5))
-                        .offset(x: 1, y: 1)
-                }
+        Group {
+            if (row.status == .busy || row.status == .running) && row.activeToolCount >= 1 {
+                ConcurrencyDots(count: row.activeToolCount, color: row.status.color, dim: row.dim)
+            } else {
+                StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
+                    .frame(width: 14, height: 14, alignment: .center)
             }
-            .frame(width: 14, height: 14, alignment: .center)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if row.hasRecentError {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 4, height: 4)
+                    .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 0.5))
+                    .offset(x: 1, y: 1)
+            }
+        }
+    }
+}
+
+/// Renders N small filled circles in a horizontal row. Replaces the single
+/// busy/running status icon when there's ≥1 active tool, so the count of
+/// in-flight tools is conveyed visually. Each dot is ~7pt (the same size as
+/// the idle dot — `circle.fill` at 55% of 14pt). Capped at 5 visible dots;
+/// counts beyond that show a small "+" indicator.
+private struct ConcurrencyDots: View {
+    let count: Int
+    let color: Color
+    let dim: Bool
+
+    private static let dotSize: CGFloat = 7
+    private static let spacing: CGFloat = 2
+    private static let maxVisible = 5
+
+    var body: some View {
+        let visible = min(count, Self.maxVisible)
+        HStack(spacing: Self.spacing) {
+            ForEach(0..<visible, id: \.self) { _ in
+                Circle()
+                    .fill(color.opacity(dim ? 0.45 : 1.0))
+                    .frame(width: Self.dotSize, height: Self.dotSize)
+            }
+            if count > Self.maxVisible {
+                Text("+")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(color.opacity(dim ? 0.45 : 1.0))
+            }
+        }
+        .frame(height: 14, alignment: .center)
+        .accessibilityLabel(count == 1 ? "1 tool running" : "\(count) tools running")
     }
 }

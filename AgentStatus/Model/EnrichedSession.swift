@@ -109,7 +109,8 @@ extension ActiveTool {
             return (input["url"] as? String) ?? ""
         case "WebSearch":
             return (input["query"] as? String) ?? ""
-        case "Task":
+        case "Task", "Agent":
+            // Both names appear in transcripts depending on Claude Code version.
             return (input["description"] as? String) ?? (input["subagent_type"] as? String) ?? ""
         case "TodoWrite":
             return "todos"
