@@ -19,13 +19,11 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
     private let popover: NSPopover
     private var hostingView: NSHostingView<PerSessionLabel>?
 
-    private var lastStatus: SessionStatus
-    private var lastTitle: String
-    private var lastDim: Bool
+    private var lastRowData: RowData
 
-    /// Width budget: ~14pt icon + 5pt spacing + ~70pt text + 12pt padding ≈ 102pt.
+    /// Width budget: 14pt icon + 6pt spacing + ~154pt two-line text area + 6pt padding ≈ 180pt.
     /// Fixed length avoids Auto Layout cycles between the button and hosting view.
-    private static let itemWidth: CGFloat = 102
+    private static let itemWidth: CGFloat = 180
     private static let itemHeight: CGFloat = NSStatusBar.system.thickness
 
     init(snapshotId: String, initialSnapshot: SessionSnapshot, store: SessionStore, settings: Settings) {
@@ -38,17 +36,13 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         self.popover.contentSize = NSSize(width: 320, height: 260)
         // contentViewController stays nil until popover opens — see togglePopover().
 
-        self.lastStatus = initialSnapshot.status
-        self.lastTitle = Self.shortTitle(for: initialSnapshot)
-        self.lastDim = !initialSnapshot.isAlive
+        self.lastRowData = Self.rowData(from: initialSnapshot, now: Date())
 
         super.init()
 
         self.popover.delegate = self
 
-        let host = NSHostingView(rootView: PerSessionLabel(
-            status: lastStatus, title: lastTitle, dim: lastDim
-        ))
+        let host = NSHostingView(rootView: PerSessionLabel(row: lastRowData))
         host.frame = NSRect(x: 0, y: 0, width: Self.itemWidth, height: Self.itemHeight)
 
         if let button = item.button {
@@ -58,37 +52,26 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
             button.addSubview(host)
             button.target = self
             button.action = #selector(togglePopover(_:))
-            button.toolTip = initialSnapshot.cwd.path
+            button.toolTip = Self.tooltip(for: initialSnapshot)
         }
         hostingView = host
     }
 
-    /// Skip if nothing UI-relevant changed (status / title / dim). Critical:
-    /// the file's `updatedAt` ticks every Claude write, so naive update-on-every
-    /// poll thrashes the menu bar layout.
+    /// Snapshot ingest hook. Tooltip refreshes every time (cheap — no
+    /// view-tree mutation). The SwiftUI tree is rebuilt only when the
+    /// derived `RowData` differs from the cached one, so the 1.3 Hz
+    /// file-driven ingest doesn't thrash the menu bar layout.
     func update(with snapshot: SessionSnapshot) {
-        let newTitle = Self.shortTitle(for: snapshot)
-        let newDim = !snapshot.isAlive
         guard let host = hostingView else { return }
 
         // Always refresh tooltip — cheap, no view-tree mutation.
         item.button?.toolTip = Self.tooltip(for: snapshot)
 
-        if snapshot.status == lastStatus && newTitle == lastTitle && newDim == lastDim {
-            return
-        }
+        let next = Self.rowData(from: snapshot, now: Date())
+        if next == lastRowData { return }
 
-        lastStatus = snapshot.status
-        lastTitle = newTitle
-        lastDim = newDim
-        host.rootView = PerSessionLabel(status: snapshot.status, title: newTitle, dim: newDim)
-    }
-
-    private static func shortTitle(for snapshot: SessionSnapshot) -> String {
-        let base = snapshot.cwdBasename
-        let max = 12
-        if base.count <= max { return base }
-        return String(base.prefix(max - 1)) + "…"
+        lastRowData = next
+        host.rootView = PerSessionLabel(row: next)
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -229,23 +212,51 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
     }
 }
 
-/// SwiftUI content of a per-session NSStatusItem button. Static-only (no animations).
+/// SwiftUI content of a per-session NSStatusItem button. Two rows inside the
+/// fixed 22pt menu bar height: aiTitle (or cwd fallback) at 12pt medium on top,
+/// a state-driven suffix at 9pt regular below. Static — no animations.
+///
+/// The red pip overlay on the status icon is bool-gated (`hasRecentError`) so
+/// only the bool-transition crosses a redraw boundary.
 struct PerSessionLabel: View {
-    let status: SessionStatus
-    let title: String
-    let dim: Bool
+    let row: PerSessionStatusItem.RowData
 
     var body: some View {
-        HStack(spacing: 5) {
-            StaticStatusIcon(status: status, size: 14, dim: dim)
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .foregroundStyle(dim ? .secondary : .primary)
+        HStack(spacing: 6) {
+            iconWithPip
+            VStack(alignment: .leading, spacing: 0) {
+                Text(row.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(row.dim ? .secondary : .primary)
+                Text(row.bottom)
+                    .font(.system(size: 9))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(.secondary)
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6)
-        .frame(width: 102, height: NSStatusBar.system.thickness, alignment: .leading)
+        .frame(width: 180, height: NSStatusBar.system.thickness, alignment: .leading)
+    }
+
+    /// Icon stack: base StaticStatusIcon with an optional red pip overlay in
+    /// the bottom-right corner. The pip is a small filled circle ~4pt across,
+    /// drawn with a thin background-color ring so it stays visible against
+    /// any menu bar tint.
+    private var iconWithPip: some View {
+        StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
+            .overlay(alignment: .bottomTrailing) {
+                if row.hasRecentError {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 4, height: 4)
+                        .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 0.5))
+                        .offset(x: 1, y: 1)
+                }
+            }
+            .frame(width: 14, height: 14, alignment: .center)
     }
 }
