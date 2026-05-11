@@ -86,7 +86,9 @@ actor TranscriptTailer {
     /// Routing rules:
     ///   - `pending.name == "AskUserQuestion"` → `.askUserQuestion(text, options)`
     ///     using `pendingInput["questions"][0]`.
-    ///   - `pending.name == "Task"` → `.subagent(description, prompt)` from `pendingInput`.
+    ///   - `pending.name == "Task"` or `"Agent"` → `.subagent(description, prompt)`
+    ///     from `pendingInput`. Both names appear in transcripts depending on
+    ///     Claude Code version.
     ///   - any other `pending` → `.tool(name, preview)`.
     ///   - no `pending` → `.unknown(rawWaitingFor)`.
     static func waitingDisplay(

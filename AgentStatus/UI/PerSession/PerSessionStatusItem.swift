@@ -239,7 +239,7 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
 
 /// SwiftUI content of a per-session NSStatusItem button. Up to two rows inside
 /// the fixed 22pt menu bar height: aiTitle (or cwd fallback) at 12pt medium on
-/// top, a state-driven suffix at 9pt regular below. When the suffix is empty
+/// top, a state-driven suffix at 10pt regular below. When the suffix is empty
 /// (idle, stopped, paused, etc. — anything the icon alone already conveys),
 /// the bottom row is dropped and the title vertically centers in the slot.
 /// Static — no animations.
