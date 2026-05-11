@@ -23,10 +23,10 @@ struct StaticStatusIcon: View {
 
     private var glyph: String {
         switch status {
-        case .busy, .running: "circle.dotted"
+        case .busy, .running: "circle.fill"     // Active: bold, solid, full size.
         case .waiting:        "bell.badge.fill"
         case .error:          "exclamationmark.octagon.fill"
-        case .idle:           "circle.fill"
+        case .idle:           "circle.fill"     // Same shape as busy but smaller + green.
         case .stopped:        "stop.circle.fill"
         case .paused:         "pause.circle.fill"
         case .unknown:        "questionmark.circle.dashed"
@@ -35,6 +35,8 @@ struct StaticStatusIcon: View {
 
     /// Idle is intentionally smaller than the active states — calm states
     /// should look calm. Same logic as StatusRingIcon's animated version.
+    /// Busy/running stay full size so the "calm dot vs active dot" reads
+    /// purely from size + color rather than from a different shape.
     private var glyphSize: CGFloat {
         switch status {
         case .idle:               size * 0.55
