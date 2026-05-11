@@ -178,7 +178,7 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
 
         let active = snap.enriched?.activeTools ?? []
 
-        if snap.status == .busy && !active.isEmpty {
+        if (snap.status == .busy || snap.status == .running) && !active.isEmpty {
             // Elapsed anchor: earliest active tool's startedAt. activeTools
             // is already sorted ascending by startedAt (see TranscriptTailer.
             // recomputeActiveAndRecent), so `.first` is the earliest.
@@ -273,28 +273,44 @@ struct PerSessionLabel: View {
     }
 
     /// Icon column: multi-dot for busy/running (N small blue dots = N in-flight
-    /// tools), single StaticStatusIcon for every other state. Red pip overlays
-    /// the bottom-right corner when `hasRecentError` is set — bool-gated, so it
-    /// only crosses a redraw boundary when the flag flips.
+    /// tools), single StaticStatusIcon for every other state. The error pip is
+    /// rendered by each variant on its own leftmost icon element so it stays in
+    /// a consistent position regardless of dot count.
     @ViewBuilder
     private var iconWithPip: some View {
-        Group {
-            if (row.status == .busy || row.status == .running) && row.activeToolCount >= 1 {
-                ConcurrencyDots(count: row.activeToolCount, status: row.status, dim: row.dim)
-            } else {
-                StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
-                    .frame(width: 14, height: 14, alignment: .center)
-            }
+        if (row.status == .busy || row.status == .running) && row.activeToolCount >= 1 {
+            ConcurrencyDots(count: row.activeToolCount,
+                            status: row.status,
+                            dim: row.dim,
+                            hasRecentError: row.hasRecentError)
+        } else {
+            StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
+                .frame(width: 14, height: 14, alignment: .center)
+                .overlay(alignment: .bottomTrailing) {
+                    if row.hasRecentError { ErrorPip() }
+                }
         }
-        .overlay(alignment: .bottomTrailing) {
-            if row.hasRecentError {
-                Circle()
-                    .fill(.red)
-                    .frame(width: 4, height: 4)
-                    .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 0.5))
-                    .offset(x: 1, y: 1)
-            }
-        }
+    }
+
+}
+
+/// Small red dot drawn at the bottom-right of the icon zone when any of the
+/// last 5 completed tools had `is_error: true`. Bool-gated by `hasRecentError`
+/// on RowData so the pip only enters/exits the view tree on a transition, not
+/// on every snapshot ingest. Reused by both the single-icon path (in
+/// `PerSessionLabel.iconWithPip`) and the multi-dot path (in `ConcurrencyDots`,
+/// which anchors it to the first dot).
+///
+/// Lives at file scope — not nested on `PerSessionStatusItem` — because the
+/// class is `@MainActor`-isolated and Swift's isolation rules prevented other
+/// `View`-typed siblings in this file from resolving a static member on it.
+private struct ErrorPip: View {
+    var body: some View {
+        Circle()
+            .fill(.red)
+            .frame(width: 4, height: 4)
+            .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 0.5))
+            .offset(x: 1, y: 1)
     }
 }
 
@@ -314,6 +330,7 @@ private struct ConcurrencyDots: View {
     let count: Int
     let status: SessionStatus
     let dim: Bool
+    let hasRecentError: Bool
 
     private static let perDotWidth: CGFloat = 10
     private static let spacing: CGFloat = 0
@@ -322,9 +339,16 @@ private struct ConcurrencyDots: View {
     var body: some View {
         let visible = min(count, Self.maxVisible)
         HStack(spacing: Self.spacing) {
-            ForEach(0..<visible, id: \.self) { _ in
+            ForEach(0..<visible, id: \.self) { idx in
                 StaticStatusIcon(status: status, size: 14, dim: dim)
                     .frame(width: Self.perDotWidth)
+                    .overlay(alignment: .bottomTrailing) {
+                        // Pip on the FIRST dot only — anchors the error signal
+                        // to a stable position regardless of dot count.
+                        if idx == 0 && hasRecentError {
+                            ErrorPip()
+                        }
+                    }
             }
             if count > Self.maxVisible {
                 Text("+")

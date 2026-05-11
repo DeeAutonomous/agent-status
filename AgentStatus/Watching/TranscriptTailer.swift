@@ -110,7 +110,10 @@ actor TranscriptTailer {
             }
             return .askUserQuestion(text: text, options: options)
 
-        case "Task":
+        case "Task", "Agent":
+            // Both names appear in transcripts depending on Claude Code version.
+            // Parallel to ActiveTool.preview's `case "Task", "Agent":` for the
+            // description/subagent_type fallback.
             let description = (pendingInput?["description"] as? String) ?? ""
             let prompt = (pendingInput?["prompt"] as? String) ?? ""
             return .subagent(description: description, prompt: prompt)

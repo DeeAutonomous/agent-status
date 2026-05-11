@@ -143,6 +143,33 @@ final class PerSessionRowDataTests: XCTestCase {
         XCTAssertEqual(r.activeToolCount, 0)
     }
 
+    func testRunningStatusWithActiveToolsPopulatesBottomAndCount() {
+        // `.running` (sdk-cli headless) should behave the same as `.busy`:
+        // bottom row gets tool info, activeToolCount drives multi-dot icon.
+        // Earlier regression: bottomText only handled `.busy`, leaving
+        // `.running` sessions with an icon but no bottom text.
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "1", name: "Bash", preview: "npm test", startedAt: t0.addingTimeInterval(-30)),
+        ]
+        let snap = makeSnap(status: .running, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "Bash npm test")
+        XCTAssertEqual(r.activeToolCount, 1)
+    }
+
+    func testRunningStatusMultiToolListsNames() {
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "a", name: "Bash", preview: "one", startedAt: t0.addingTimeInterval(-130)),
+            active(id: "b", name: "Read", preview: "two", startedAt: t0.addingTimeInterval(-60)),
+        ]
+        let snap = makeSnap(status: .running, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "Bash, Read · 2m")
+        XCTAssertEqual(r.activeToolCount, 2)
+    }
+
     func testWaitingWithPendingPreviewIncludesPreview() {
         var e = EnrichedSession.empty
         e.activeTools = [active(id: "1", name: "Bash", preview: "xcodebuild test", startedAt: t0.addingTimeInterval(-5))]

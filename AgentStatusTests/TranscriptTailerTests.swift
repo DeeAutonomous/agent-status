@@ -143,6 +143,24 @@ final class TranscriptTailerTests: XCTestCase {
         XCTAssertEqual(d, .subagent(description: "do thing", prompt: ""))
     }
 
+    func testWaitingDisplayAgentAliasRoutesAsSubagent() {
+        // Both "Task" and "Agent" are tool names Claude Code emits depending
+        // on version. Both must route to .subagent so the detail popover shows
+        // description + prompt rather than the generic .tool template.
+        let pending = makeActive(name: "Agent", preview: "research-foo")
+        let input: [String: Any] = [
+            "description": "research-foo",
+            "prompt": "Investigate the flaky test.",
+        ]
+        let d = TranscriptTailer.waitingDisplay(
+            for: "approve Agent", pending: pending, pendingInput: input
+        )
+        XCTAssertEqual(d, .subagent(
+            description: "research-foo",
+            prompt: "Investigate the flaky test."
+        ))
+    }
+
     func testWaitingDisplayUnknownFallback() {
         // No pending tool we recognize → fall back to raw string verbatim.
         let d = TranscriptTailer.waitingDisplay(
