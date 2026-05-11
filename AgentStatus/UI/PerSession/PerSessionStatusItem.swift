@@ -142,12 +142,18 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         )
     }
 
-    /// Compute the bottom-row suffix from session state. Private — split out
-    /// so the main `rowData` builder stays small and the suffix grammar is
-    /// readable as a single function. Returns the literal text including any
-    /// `· {N}m` elapsed-time tail; truncation happens at render time.
+    /// Compute the bottom-row suffix from session state. Returns the empty
+    /// string when there's nothing informative to add beyond what the status
+    /// icon already conveys — the bottom row is reserved for genuine extra
+    /// information (active tool + preview + elapsed, count of parallel tools,
+    /// approval target). Status-word-only states (idle, stopped, paused,
+    /// error, running, plus the transient busy/waiting variants with no
+    /// active tool yet) render with an empty bottom row, letting the icon do
+    /// its job alone.
+    ///
+    /// Truncation of long strings happens at render time.
     private static func bottomText(for snap: SessionSnapshot, now: Date) -> String {
-        // Waiting overrides everything except .error — most action-required.
+        // Waiting overrides everything else — most action-required.
         if snap.status == .waiting {
             // .last is the pending tool when waiting: activeTools is sorted
             // oldest-first, so the newest entry is the approval target.
@@ -158,7 +164,9 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
                 }
                 return "approve \(pending.name) · \(trimmed)"
             }
-            return snap.status.displayName.lowercased()
+            // Transient: status .waiting with no pending tool yet → no extra
+            // info to show; icon's `bell.badge.fill` already conveys waiting.
+            return ""
         }
 
         let active = snap.enriched?.activeTools ?? []
@@ -179,9 +187,11 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
             return "\(active.count) tools\(minutesSuffix)"
         }
 
-        // All other states (idle, busy-without-active, stopped, paused,
-        // error, running, unknown) → status displayName lowercased.
-        return snap.status.displayName.lowercased()
+        // Status-word-only states (idle, busy-without-active, stopped, paused,
+        // error, running, unknown) → empty. The icon carries the status; the
+        // bottom row only fills with content when there's something extra
+        // worth saying beyond "the session has this status."
+        return ""
     }
 
     /// Build a multi-line tooltip from a snapshot. Pure — no side effects.
@@ -214,9 +224,12 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
     }
 }
 
-/// SwiftUI content of a per-session NSStatusItem button. Two rows inside the
-/// fixed 22pt menu bar height: aiTitle (or cwd fallback) at 12pt medium on top,
-/// a state-driven suffix at 9pt regular below. Static — no animations.
+/// SwiftUI content of a per-session NSStatusItem button. Up to two rows inside
+/// the fixed 22pt menu bar height: aiTitle (or cwd fallback) at 12pt medium on
+/// top, a state-driven suffix at 9pt regular below. When the suffix is empty
+/// (idle, stopped, paused, etc. — anything the icon alone already conveys),
+/// the bottom row is dropped and the title vertically centers in the slot.
+/// Static — no animations.
 ///
 /// The red pip overlay on the status icon is bool-gated (`hasRecentError`) so
 /// only the bool-transition crosses a redraw boundary.
@@ -232,11 +245,13 @@ struct PerSessionLabel: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(row.dim ? .secondary : .primary)
-                Text(row.bottom)
-                    .font(.system(size: 9))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .foregroundStyle(.secondary)
+                if !row.bottom.isEmpty {
+                    Text(row.bottom)
+                        .font(.system(size: 9))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 0)
         }
