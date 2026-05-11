@@ -1,6 +1,18 @@
 # Per-session menu-bar item redesign
 
-**Status:** Approved (brainstorm 2026-05-11), pending implementation plan.
+**Status:** **Superseded by dogfooding polish.** Original brainstorm 2026-05-11; shipped in PR #3. The architecture (RowData equality gate, two-line layout, aiTitle as identity) stands as written below. The shipped *bottom-row grammar* and *icon sizing* diverged from this spec during polish — see the git log on `feat/per-session-redesign` for the exact decisions and rationale, summarized below.
+
+> **Material divergences from this spec, in the shipped code:**
+> - Bottom row is **empty** (not `idle` / `stopped` / `paused`) for status-word-only states. The icon carries the signal alone; the bottom-row text is reserved for genuine extra info (active tool name + preview + elapsed, approval target, etc.).
+> - Multi-tool busy bottom row **lists tool names** (`Bash, Read, Agent · 2m`) instead of the spec's `3 tools · 2m`. The count is conveyed by the icon's multi-dot rendering.
+> - Bottom row font is **10pt primary** (not 9pt secondary) — bumped during polish for menu bar readability over translucent tints.
+> - Busy/running icons are now **small dots** (55% size, matching idle) instead of full-size. `StaticStatusIcon` gained a third tier so .idle/.busy/.running share the "calm dot" size; only .waiting/.error stay at 100%.
+> - Concurrent busy tools render as **N small dots** (`ConcurrencyDots`) in the icon column — a feature not in the original spec.
+> - `EnrichedSession.coreEqual` was **updated** to include `activeTools` and `recentTools` (the new row reads both) — superseding the v0.1.0 optimization that excluded them.
+> - `ActiveTool.preview` and `TranscriptTailer.waitingDisplay` both now alias `"Task"` and `"Agent"` tool names.
+
+---
+
 **Scope:** `PerSessionStatusItem` + its embedded `PerSessionLabel` SwiftUI view. No changes to `SessionRow`, the dashboard, the popover, or the transcript tailer.
 **Top constraint:** performance. Redraw discipline matches today's: every change goes through a `RowData` equality gate so 1.3 Hz snapshot ingest never thrashes the menu bar layout.
 
