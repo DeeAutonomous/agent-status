@@ -121,6 +121,84 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
         NSStatusBar.system.removeStatusItem(item)
     }
 
+    /// Equatable snapshot of every menu-bar-row-relevant field. Used as the
+    /// sole redraw gate in `update(with:)` so 1.3 Hz file-driven snapshot
+    /// ingest can't thrash the menu bar layout — only meaningful state
+    /// transitions produce a new `RowData` and therefore a new SwiftUI tree.
+    struct RowData: Equatable {
+        let status: SessionStatus
+        let title: String
+        let bottom: String
+        let dim: Bool
+        let hasRecentError: Bool
+    }
+
+    /// Pure: snapshot + now → RowData. The `now: Date` parameter is the
+    /// elapsed-time anchor (production passes `Date()`; tests pass a pinned
+    /// date). All formatting decisions live here so the redraw gate can
+    /// short-circuit on equality alone.
+    static func rowData(from snap: SessionSnapshot, now: Date) -> RowData {
+        let title: String
+        if let t = snap.enriched?.aiTitle, !t.isEmpty {
+            title = t
+        } else {
+            title = snap.cwdBasename
+        }
+
+        let bottom = bottomText(for: snap, now: now)
+
+        let recent = snap.enriched?.recentTools ?? []
+        let hasRecentError = recent.prefix(5).contains { $0.isError }
+
+        return RowData(
+            status: snap.status,
+            title: title,
+            bottom: bottom,
+            dim: !snap.isAlive,
+            hasRecentError: hasRecentError
+        )
+    }
+
+    /// Compute the bottom-row suffix from session state. Private — split out
+    /// so the main `rowData` builder stays small and the suffix grammar is
+    /// readable as a single function. Returns the literal text including any
+    /// `· {N}m` elapsed-time tail; truncation happens at render time.
+    private static func bottomText(for snap: SessionSnapshot, now: Date) -> String {
+        // Waiting overrides everything except .error — most action-required.
+        if snap.status == .waiting {
+            if let pending = snap.enriched?.activeTools.last {
+                let trimmed = pending.preview.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    return "approve \(pending.name)"
+                }
+                return "approve \(pending.name) · \(trimmed)"
+            }
+            return snap.status.displayName.lowercased()
+        }
+
+        let active = snap.enriched?.activeTools ?? []
+
+        if snap.status == .busy && !active.isEmpty {
+            // Elapsed anchor: earliest active tool's startedAt. activeTools
+            // is already sorted ascending by startedAt (see TranscriptTailer.
+            // recomputeActiveAndRecent), so `.first` is the earliest.
+            let elapsedSeconds = max(0, now.timeIntervalSince(active[0].startedAt))
+            let minutesSuffix = elapsedSeconds >= 60 ? " · \(Int(elapsedSeconds) / 60)m" : ""
+
+            if active.count == 1 {
+                let tool = active[0]
+                let trimmed = tool.preview.trimmingCharacters(in: .whitespaces)
+                let head = trimmed.isEmpty ? tool.name : "\(tool.name) \(trimmed)"
+                return head + minutesSuffix
+            }
+            return "\(active.count) tools\(minutesSuffix)"
+        }
+
+        // All other states (idle, busy-without-active, stopped, paused,
+        // error, running, unknown) → status displayName lowercased.
+        return snap.status.displayName.lowercased()
+    }
+
     /// Build a multi-line tooltip from a snapshot. Pure — no side effects.
     /// Free to call on every poll: the tooltip is hover-only and never causes
     /// a layout pass.
