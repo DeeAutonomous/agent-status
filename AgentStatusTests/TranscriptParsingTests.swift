@@ -171,6 +171,41 @@ final class TranscriptParsingTests: XCTestCase {
         XCTAssertEqual(snap.recentTools.first?.isError, true)
     }
 
+    func testRecentToolDurationUsesTranscriptTimestampsNotWallClock() async {
+        // Regression: durations were computed as `Date() - startedAt`, which is
+        // wrong when the tailer is reading a transcript from a session that ran
+        // days ago. The completion timestamp must come from the user message's
+        // `timestamp` field, not the wall clock at line-read time.
+        let tailer = TranscriptTailer(sessionId: "dur", cwd: URL(fileURLWithPath: "/tmp"))
+
+        // Assistant message at T0, tool_result at T0 + 1.5s — both timestamps
+        // sit ~ years before "now" so a wall-clock duration would be huge.
+        await tailer._test_processLine(jsonString([
+            "type": "assistant",
+            "timestamp": "2024-01-01T00:00:00.000Z",
+            "message": [
+                "content": [
+                    ["type": "tool_use", "id": "u1", "name": "Bash",
+                     "input": ["command": "echo hi"]],
+                ],
+            ],
+        ]))
+        await tailer._test_processLine(jsonString([
+            "type": "user",
+            "timestamp": "2024-01-01T00:00:01.500Z",
+            "message": [
+                "content": [
+                    ["type": "tool_result", "tool_use_id": "u1", "is_error": false],
+                ],
+            ],
+        ]))
+
+        let snap = await tailer._test_state
+        let dur = snap.recentTools.first?.duration ?? -1
+        XCTAssertEqual(dur, 1.5, accuracy: 0.01,
+                       "duration must come from transcript timestamps, not wall clock; got \(dur)s")
+    }
+
     func testChunkedReadParsesLargeTranscriptInOneTick() async throws {
         // Build a 2 MB synthetic transcript and feed it via the real file-based
         // tick path. The tailer must parse it without OOM and produce expected
