@@ -11,7 +11,8 @@ A native macOS menu bar app that tells you what your AI coding agents are doing 
 
 ## Features
 
-- **At-a-glance menu bar** — aggregate icon morphs by dominant status (idle / busy / waiting / error); optional per-session item per agent with its cwd basename.
+- **At-a-glance menu bar** — aggregate icon morphs by dominant status (idle / busy / waiting / error).
+- **Per-session menu-bar items** — pin specific sessions to the menu bar with an informative two-line label: aiTitle on top, state-driven suffix (`idle` / `Bash xcodebuild test · 1m` / `3 tools · 2m` / `approve Bash · xcodebuild test`) below, plus a red pip overlay on the icon when recent tool calls have errored. Designed to answer "do I need to look at this session" without a click.
 - **Rich dashboard** (click the aggregate icon) — for every live session: animated status indicator, **currently-running tool with live duration** ("Bash: `xcodebuild …` (47s)"), permission-mode chip (auto / plan / bypass), tokens & estimated USD cost, model chip, AI-generated session title, 60 s activity sparkline.
 - **Per-session detail popover** (click any per-session item) — full token split (input / output / cache_read / cache_write), last user prompt, last assistant reply, sub-agent activity, error count, full metadata.
 - **Concurrency-aware** — the per-session popover lists every in-flight tool with live elapsed timers, recent completions with durations, and tool-aware "waiting for approval" detail when blocked on a permission gate.
