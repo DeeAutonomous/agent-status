@@ -244,6 +244,13 @@ actor TranscriptTailer {
         guard let message = json["message"] as? [String: Any] else { return }
         let content = message["content"]
 
+        // Tool completion timestamp: use the user message's `timestamp` field so
+        // durations reflect when the result *actually* arrived, not when we
+        // happened to read the line. Falling back to `Date()` would make resumed
+        // / replayed transcripts show nonsense durations (`startedAt` parsed
+        // from a real timestamp days ago, `endedAt` = now → 3000+ minutes).
+        let messageTimestamp = parseTimestamp(json["timestamp"] as? String) ?? Date()
+
         if let text = content as? String, !text.isEmpty {
             state.lastUserPrompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
             return
@@ -261,7 +268,7 @@ actor TranscriptTailer {
                             rawInputJSON: starting.inputJSON
                         )
                         let isError = (block["is_error"] as? Bool) == true
-                        let completion = CompletedTool(completing: active, isError: isError, at: Date())
+                        let completion = CompletedTool(completing: active, isError: isError, at: messageTimestamp)
                         recentToolsRing.append(completion)
                         if recentToolsRing.count > Self.recentToolsCap {
                             recentToolsRing.removeFirst(recentToolsRing.count - Self.recentToolsCap)
