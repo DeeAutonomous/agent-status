@@ -34,10 +34,12 @@ final class PerSessionRowDataTests: XCTestCase {
 
     // MARK: - Bottom suffix grammar
 
-    func testIdleBottomIsIdle() {
+    func testIdleBottomIsEmpty() {
+        // Idle state: icon alone conveys status; bottom row stays empty so
+        // the title vertically centers in the menu bar slot.
         let snap = makeSnap(status: .idle)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "idle")
+        XCTAssertEqual(r.bottom, "")
     }
 
     func testSingleToolUnderOneMinuteShowsNameAndPreview() {
@@ -105,32 +107,35 @@ final class PerSessionRowDataTests: XCTestCase {
         XCTAssertEqual(r.bottom, "approve AskUserQuestion")
     }
 
-    func testBusyWithEmptyActiveToolsFallsBackToStatusName() {
+    func testBusyWithEmptyActiveToolsHasEmptyBottom() {
         // Transient: status .busy but enriched.activeTools empty (e.g. between
         // the pid.json status flipping to busy and the first tool_use line
-        // arriving in the transcript).
+        // arriving in the transcript). Icon alone is enough; bottom stays empty.
         let snap = makeSnap(status: .busy)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "busy")
+        XCTAssertEqual(r.bottom, "")
     }
 
-    func testWaitingWithNoPendingToolFallsBackToStatusName() {
-        // Transient: status .waiting but activeTools empty.
+    func testWaitingWithNoPendingToolHasEmptyBottom() {
+        // Transient: status .waiting but activeTools empty. The bell-badge
+        // icon already conveys "waiting"; nothing useful to add as text.
         let snap = makeSnap(status: .waiting)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "waiting")
+        XCTAssertEqual(r.bottom, "")
     }
 
-    func testStoppedShowsLowercasedDisplayName() {
+    func testStoppedHasEmptyBottom() {
+        // stop.fill icon conveys it; no text needed.
         let snap = makeSnap(status: .stopped)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "stopped")
+        XCTAssertEqual(r.bottom, "")
     }
 
-    func testPausedShowsLowercasedDisplayName() {
+    func testPausedHasEmptyBottom() {
+        // pause.fill icon conveys it; no text needed.
         let snap = makeSnap(status: .paused)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "paused")
+        XCTAssertEqual(r.bottom, "")
     }
 
     // MARK: - Error pip window
