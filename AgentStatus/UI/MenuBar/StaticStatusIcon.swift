@@ -33,15 +33,17 @@ struct StaticStatusIcon: View {
         }
     }
 
-    /// Idle is intentionally smaller than the active states — calm states
-    /// should look calm. Same logic as StatusRingIcon's animated version.
-    /// Busy/running stay full size so the "calm dot vs active dot" reads
-    /// purely from size + color rather than from a different shape.
+    /// Glyph size by status. Three tiers:
+    ///   - 55% — idle/busy/running: small filled dots ("dot" iconography that
+    ///     differentiates by color, not size — green/blue/blue).
+    ///   - 90% — stopped/paused/unknown: medium, neither calm nor urgent.
+    ///   - 100% — waiting/error: full-size icons with distinctive shapes
+    ///     (bell-badge, octagon) — these are the urgent states that need to pop.
     private var glyphSize: CGFloat {
         switch status {
-        case .idle:               size * 0.55
+        case .idle, .busy, .running:      size * 0.55
         case .stopped, .paused, .unknown: size * 0.9
-        default:                  size
+        case .waiting, .error:            size
         }
     }
 }

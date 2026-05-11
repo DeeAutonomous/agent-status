@@ -280,7 +280,7 @@ struct PerSessionLabel: View {
     private var iconWithPip: some View {
         Group {
             if (row.status == .busy || row.status == .running) && row.activeToolCount >= 1 {
-                ConcurrencyDots(count: row.activeToolCount, color: row.status.color, dim: row.dim)
+                ConcurrencyDots(count: row.activeToolCount, status: row.status, dim: row.dim)
             } else {
                 StaticStatusIcon(status: row.status, size: 14, dim: row.dim)
                     .frame(width: 14, height: 14, alignment: .center)
@@ -300,35 +300,36 @@ struct PerSessionLabel: View {
 
 /// Renders N small filled circles in a horizontal row. Replaces the single
 /// busy/running status icon when there's ≥1 active tool, so the count of
-/// in-flight tools is conveyed visually. Each dot uses the same SF Symbol
-/// (`circle.fill` at 7.7pt — 55% of the standard 14pt icon size) as the
-/// idle dot in `StaticStatusIcon`, so the busy and idle dots are optically
-/// identical. Capped at 5 visible; overflow shown as a small "+" tail.
+/// in-flight tools is conveyed visually.
+///
+/// Each dot IS a `StaticStatusIcon` (same code path StaticStatusIcon already
+/// uses for idle). The previous version reimplemented the SF Symbol render
+/// inline, which produced subtly bigger glyphs than the idle dot — using
+/// StaticStatusIcon directly is pixel-identical with idle by construction.
+/// Per-dot width is narrowed from StaticStatusIcon's 14pt frame to 10pt to
+/// keep the icon column compact even with 5 dots.
+///
+/// Capped at 5 visible; overflow shown as a small "+" tail.
 private struct ConcurrencyDots: View {
     let count: Int
-    let color: Color
+    let status: SessionStatus
     let dim: Bool
 
-    /// Matches `StaticStatusIcon`'s idle glyph size (`size * 0.55` for the
-    /// standard 14pt icon). Using the SF Symbol with the same point size as
-    /// idle guarantees the two states look the same size on screen.
-    private static let dotGlyphSize: CGFloat = 14 * 0.55
-    private static let spacing: CGFloat = 2
+    private static let perDotWidth: CGFloat = 10
+    private static let spacing: CGFloat = 0
     private static let maxVisible = 5
 
     var body: some View {
         let visible = min(count, Self.maxVisible)
         HStack(spacing: Self.spacing) {
             ForEach(0..<visible, id: \.self) { _ in
-                Image(systemName: "circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: Self.dotGlyphSize, weight: .medium))
-                    .foregroundStyle(color.opacity(dim ? 0.45 : 1.0))
+                StaticStatusIcon(status: status, size: 14, dim: dim)
+                    .frame(width: Self.perDotWidth)
             }
             if count > Self.maxVisible {
                 Text("+")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(color.opacity(dim ? 0.45 : 1.0))
+                    .foregroundStyle(status.color.opacity(dim ? 0.45 : 1.0))
             }
         }
         .frame(height: 14, alignment: .center)
