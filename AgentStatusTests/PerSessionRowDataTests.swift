@@ -66,7 +66,9 @@ final class PerSessionRowDataTests: XCTestCase {
         XCTAssertEqual(r.bottom, "Bash")
     }
 
-    func testThreeToolsUnderOneMinuteShowsCountOnly() {
+    func testThreeToolsUnderOneMinuteShowsNamesJoined() {
+        // Multi-tool: count is conveyed visually by the multi-dot icon.
+        // The bottom row lists tool names so the user sees WHAT is running.
         var e = EnrichedSession.empty
         e.activeTools = [
             active(id: "a", name: "Bash", preview: "one", startedAt: t0.addingTimeInterval(-35)),
@@ -75,11 +77,11 @@ final class PerSessionRowDataTests: XCTestCase {
         ]
         let snap = makeSnap(status: .busy, enriched: e)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "3 tools")
+        XCTAssertEqual(r.bottom, "Bash, Bash, Read")
     }
 
     func testThreeToolsOverOneMinuteAppendsMinutesUsingEarliestStart() {
-        // Earliest tool started 130s ago → bottom uses 2m.
+        // Earliest tool started 130s ago → bottom appends · 2m.
         var e = EnrichedSession.empty
         e.activeTools = [
             active(id: "a", name: "Bash", preview: "one", startedAt: t0.addingTimeInterval(-130)),
@@ -88,7 +90,57 @@ final class PerSessionRowDataTests: XCTestCase {
         ]
         let snap = makeSnap(status: .busy, enriched: e)
         let r = PerSessionStatusItem.rowData(from: snap, now: t0)
-        XCTAssertEqual(r.bottom, "3 tools · 2m")
+        XCTAssertEqual(r.bottom, "Bash, Bash, Read · 2m")
+    }
+
+    func testManyToolsShowsOverflowIndicator() {
+        // First 3 visible, "+N more" tail for the remainder.
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "a", name: "Bash", preview: "1", startedAt: t0.addingTimeInterval(-30)),
+            active(id: "b", name: "Read", preview: "2", startedAt: t0.addingTimeInterval(-25)),
+            active(id: "c", name: "Edit", preview: "3", startedAt: t0.addingTimeInterval(-20)),
+            active(id: "d", name: "Grep", preview: "4", startedAt: t0.addingTimeInterval(-15)),
+            active(id: "e", name: "Bash", preview: "5", startedAt: t0.addingTimeInterval(-10)),
+        ]
+        let snap = makeSnap(status: .busy, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "Bash, Read, Edit +2 more")
+    }
+
+    // MARK: - activeToolCount field
+
+    func testActiveToolCountPopulatedForBusy() {
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "a", name: "Bash", preview: "1", startedAt: t0.addingTimeInterval(-5)),
+            active(id: "b", name: "Bash", preview: "2", startedAt: t0.addingTimeInterval(-3)),
+        ]
+        let snap = makeSnap(status: .busy, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.activeToolCount, 2)
+    }
+
+    func testActiveToolCountZeroForIdle() {
+        // Idle: even if recentTools / activeTools exist in transient states,
+        // the icon doesn't draw multi-dots for non-active states.
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "a", name: "Bash", preview: "x", startedAt: t0.addingTimeInterval(-5)),
+        ]
+        let snap = makeSnap(status: .idle, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.activeToolCount, 0)
+    }
+
+    func testActiveToolCountZeroForWaiting() {
+        var e = EnrichedSession.empty
+        e.activeTools = [
+            active(id: "a", name: "Bash", preview: "x", startedAt: t0.addingTimeInterval(-5)),
+        ]
+        let snap = makeSnap(status: .waiting, enriched: e)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.activeToolCount, 0)
     }
 
     func testWaitingWithPendingPreviewIncludesPreview() {
