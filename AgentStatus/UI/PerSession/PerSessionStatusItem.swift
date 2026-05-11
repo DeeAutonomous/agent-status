@@ -247,10 +247,10 @@ struct PerSessionLabel: View {
                     .foregroundStyle(row.dim ? .secondary : .primary)
                 if !row.bottom.isEmpty {
                     Text(row.bottom)
-                        .font(.system(size: 9))
+                        .font(.system(size: 10, weight: .regular))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(row.dim ? .secondary : .primary)
                 }
             }
             Spacer(minLength: 0)
