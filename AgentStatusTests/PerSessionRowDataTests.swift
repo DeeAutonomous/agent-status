@@ -105,6 +105,15 @@ final class PerSessionRowDataTests: XCTestCase {
         XCTAssertEqual(r.bottom, "approve AskUserQuestion")
     }
 
+    func testBusyWithEmptyActiveToolsFallsBackToStatusName() {
+        // Transient: status .busy but enriched.activeTools empty (e.g. between
+        // the pid.json status flipping to busy and the first tool_use line
+        // arriving in the transcript).
+        let snap = makeSnap(status: .busy)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "busy")
+    }
+
     func testWaitingWithNoPendingToolFallsBackToStatusName() {
         // Transient: status .waiting but activeTools empty.
         let snap = makeSnap(status: .waiting)

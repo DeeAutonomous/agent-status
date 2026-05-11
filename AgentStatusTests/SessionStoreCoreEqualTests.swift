@@ -1,21 +1,21 @@
 import XCTest
 @testable import AgentStatus
 
-/// Pins the perf invariant at the store layer: a snapshot diff that differs
-/// only in `enriched.activeTools` / `enriched.recentTools` does NOT count as
-/// "ui-equal-changed" — i.e. menu-bar consumers don't get woken up.
+/// Pins the equality semantics at the store layer: a snapshot diff that differs
+/// in `enriched.activeTools` / `enriched.recentTools` DOES count as a meaningful
+/// change — menu-bar consumers must be woken up so the row redraws.
 @MainActor
 final class SessionStoreCoreEqualTests: XCTestCase {
-    func testActiveToolsChangeIsUIEqual() {
+    func testActiveToolsChangeIsNotUIEqual() {
         let a = makeSnapshot(activeCount: 0)
         let b = makeSnapshot(activeCount: 3)
-        XCTAssertTrue(SessionStore._test_uiEqual([a], [b]))
+        XCTAssertFalse(SessionStore._test_uiEqual([a], [b]))
     }
 
-    func testRecentToolsChangeIsUIEqual() {
+    func testRecentToolsChangeIsNotUIEqual() {
         let a = makeSnapshot(recentCount: 0)
         let b = makeSnapshot(recentCount: 5)
-        XCTAssertTrue(SessionStore._test_uiEqual([a], [b]))
+        XCTAssertFalse(SessionStore._test_uiEqual([a], [b]))
     }
 
     func testStatusChangeIsNotUIEqual() {
