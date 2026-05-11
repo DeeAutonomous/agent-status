@@ -300,15 +300,19 @@ struct PerSessionLabel: View {
 
 /// Renders N small filled circles in a horizontal row. Replaces the single
 /// busy/running status icon when there's ≥1 active tool, so the count of
-/// in-flight tools is conveyed visually. Each dot is ~7pt (the same size as
-/// the idle dot — `circle.fill` at 55% of 14pt). Capped at 5 visible dots;
-/// counts beyond that show a small "+" indicator.
+/// in-flight tools is conveyed visually. Each dot uses the same SF Symbol
+/// (`circle.fill` at 7.7pt — 55% of the standard 14pt icon size) as the
+/// idle dot in `StaticStatusIcon`, so the busy and idle dots are optically
+/// identical. Capped at 5 visible; overflow shown as a small "+" tail.
 private struct ConcurrencyDots: View {
     let count: Int
     let color: Color
     let dim: Bool
 
-    private static let dotSize: CGFloat = 7
+    /// Matches `StaticStatusIcon`'s idle glyph size (`size * 0.55` for the
+    /// standard 14pt icon). Using the SF Symbol with the same point size as
+    /// idle guarantees the two states look the same size on screen.
+    private static let dotGlyphSize: CGFloat = 14 * 0.55
     private static let spacing: CGFloat = 2
     private static let maxVisible = 5
 
@@ -316,9 +320,10 @@ private struct ConcurrencyDots: View {
         let visible = min(count, Self.maxVisible)
         HStack(spacing: Self.spacing) {
             ForEach(0..<visible, id: \.self) { _ in
-                Circle()
-                    .fill(color.opacity(dim ? 0.45 : 1.0))
-                    .frame(width: Self.dotSize, height: Self.dotSize)
+                Image(systemName: "circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: Self.dotGlyphSize, weight: .medium))
+                    .foregroundStyle(color.opacity(dim ? 0.45 : 1.0))
             }
             if count > Self.maxVisible {
                 Text("+")
