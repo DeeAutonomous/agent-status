@@ -42,9 +42,8 @@ struct EnrichedSession: Hashable, Sendable {
     var recentTools: [CompletedTool] = []
 
     /// Equality view used by `SessionStore.uiEqual` to gate UI republish events.
-    /// Excludes `activeTools` and `recentTools` so detail-only churn doesn't
-    /// thrash the menu bar. Keep this in sync with the row's actual visual
-    /// dependencies — anything the menu-bar row reads must compare here.
+    /// Keep this in sync with the row's actual visual dependencies — anything
+    /// the menu-bar row reads must compare here.
     func coreEqual(_ other: EnrichedSession) -> Bool {
         currentModel == other.currentModel
             && lastStopReason == other.lastStopReason
@@ -59,6 +58,8 @@ struct EnrichedSession: Hashable, Sendable {
             && assistantTurns == other.assistantTurns
             && toolCalls == other.toolCalls
             && currentTool == other.currentTool
+            && activeTools == other.activeTools
+            && recentTools == other.recentTools
     }
 
     static let empty = EnrichedSession()

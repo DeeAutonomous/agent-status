@@ -149,6 +149,8 @@ final class PerSessionStatusItem: NSObject, NSPopoverDelegate {
     private static func bottomText(for snap: SessionSnapshot, now: Date) -> String {
         // Waiting overrides everything except .error — most action-required.
         if snap.status == .waiting {
+            // .last is the pending tool when waiting: activeTools is sorted
+            // oldest-first, so the newest entry is the approval target.
             if let pending = snap.enriched?.activeTools.last {
                 let trimmed = pending.preview.trimmingCharacters(in: .whitespaces)
                 if trimmed.isEmpty {

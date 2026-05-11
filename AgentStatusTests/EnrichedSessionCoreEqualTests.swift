@@ -1,24 +1,24 @@
 import XCTest
 @testable import AgentStatus
 
-/// Pins the perf invariant: mutating activeTools / recentTools must not
-/// flip coreEqual (which gates SessionStore @Published updates).
+/// Pins the equality semantics for coreEqual (which gates SessionStore
+/// @Published updates and therefore menu-bar redraws).
 final class EnrichedSessionCoreEqualTests: XCTestCase {
-    func testCoreEqualIgnoresActiveTools() {
+    func testCoreEqualNoticesActiveToolsChange() {
         var a = EnrichedSession.empty
         var b = EnrichedSession.empty
         b.activeTools = [ActiveTool(id: "x", name: "Bash", preview: "npm",
                                     startedAt: .now, rawInputJSON: nil)]
-        XCTAssertTrue(a.coreEqual(b))
+        XCTAssertFalse(a.coreEqual(b))
     }
 
-    func testCoreEqualIgnoresRecentTools() {
+    func testCoreEqualNoticesRecentToolsChange() {
         var a = EnrichedSession.empty
         var b = EnrichedSession.empty
         let active = ActiveTool(id: "x", name: "Bash", preview: "npm",
                                 startedAt: .now, rawInputJSON: nil)
         b.recentTools = [CompletedTool(completing: active, isError: false, at: .now)]
-        XCTAssertTrue(a.coreEqual(b))
+        XCTAssertFalse(a.coreEqual(b))
     }
 
     func testCoreEqualNoticesCurrentModelChange() {
