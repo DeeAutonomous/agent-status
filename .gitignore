@@ -14,3 +14,6 @@ AgentStatus.xcodeproj/
 # Misc
 *.swp
 *.log
+
+# Release artifacts (built via xcodebuild + ditto)
+AgentStatus-v*.app.zip
