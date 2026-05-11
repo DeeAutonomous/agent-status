@@ -215,11 +215,16 @@ struct SessionDetailView: View {
         }
     }
 
+    /// Elapsed-time display for in-flight tools. Format matches `formatDuration`'s
+    /// over-60s case (`Nm Ms`) but uses integer seconds even below 60 — Recent's
+    /// `.1f` precision is useful for finished sub-second calls; Running ticks at
+    /// 1 Hz so decimals would just jitter without adding information. The bolt
+    /// icon + section header already signal "still elapsing"; no `t+` prefix.
     private func formatElapsed(from start: Date, to now: Date) -> String {
         let secs = max(0, Int(now.timeIntervalSince(start)))
-        if secs < 60 { return "t+\(secs)s" }
+        if secs < 60 { return "\(secs)s" }
         let m = secs / 60, s = secs % 60
-        return "t+\(m)m\(s)s"
+        return "\(m)m\(s)s"
     }
 
     @ViewBuilder
