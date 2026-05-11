@@ -217,6 +217,21 @@ final class PerSessionRowDataTests: XCTestCase {
         XCTAssertEqual(r.bottom, "")
     }
 
+    func testErrorHasEmptyBottom() {
+        // exclamationmark.octagon.fill icon (red) conveys it; no text needed.
+        let snap = makeSnap(status: .error)
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "")
+    }
+
+    func testUnknownHasEmptyBottom() {
+        // questionmark.circle.dashed icon conveys the indeterminate state;
+        // bottom stays empty rather than echoing the raw status string.
+        let snap = makeSnap(status: .unknown("future-status"))
+        let r = PerSessionStatusItem.rowData(from: snap, now: t0)
+        XCTAssertEqual(r.bottom, "")
+    }
+
     // MARK: - Error pip window
 
     func testHasRecentErrorFalseWhenAllCleanInLastFive() {
